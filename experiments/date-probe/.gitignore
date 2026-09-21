@@ -1,0 +1,3 @@
+.pgdata/
+harness/logs/
+*.tmp

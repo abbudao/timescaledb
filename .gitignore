@@ -28,7 +28,9 @@ tags
 /compile_commands.json
 /.DS_Store
 /.clangd
-/.claude
+/.claude/*
+!/.claude/settings.json
+!/.claude/hooks/
 /.cache
 
 /CMakeSettings.json

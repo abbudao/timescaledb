@@ -85,6 +85,31 @@ list them in the report and let the fork's GitHub Actions produce them.
 the clock TimescaleDB uses internally (constification, policies). It does not
 change PostgreSQL's own `now()` or `current_date`.
 
+## Working in a worktree
+
+Task agents run in their own git worktree with their own `build/`. The
+system PostgreSQL is shared, so two rules apply on top of the hook:
+
+1. Bootstrap the worktree once, under the install lock, so its build is
+   configured, compiled and installed and its test directories are writable
+   for `postgres`:
+
+   ```bash
+   experiments/date-probe/bin/locked.sh env CLAUDE_CODE_REMOTE=true CLAUDE_PROJECT_DIR="$(pwd)" .claude/hooks/session-start.sh
+   ```
+
+2. Every later sequence that installs or exercises the extension runs as one
+   locked command, starting with `make install` from your own build so the
+   installed extension is yours for the whole run:
+
+   ```bash
+   experiments/date-probe/bin/locked.sh bash -c 'make -C build -j"$(nproc)" install && experiments/date-probe/bin/regress.sh <tests>'
+   experiments/date-probe/bin/locked.sh bash -c 'make -C build install && harness/run.sh --variant baseline --scale small'
+   ```
+
+   Never run `make install`, `regress.sh` or `harness/run.sh` outside the
+   lock. Editing and compiling need no lock.
+
 ## Working rules for agents
 
 1. Work only inside the paths your brief allows. If the fix needs a file

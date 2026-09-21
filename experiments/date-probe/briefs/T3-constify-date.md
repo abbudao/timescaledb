@@ -104,6 +104,9 @@ New core test `test/sql/constify_date.sql` modelled on
 
 ## Commands
 
+Install and test sequences go through `experiments/date-probe/bin/locked.sh`
+as one command, see "Working in a worktree" in the README. Unlocked:
+
 ```bash
 make -C build -j"$(nproc)" && make -C build install
 clang-format -i src/planner/constify_now.c src/planner/date_bounds.[ch]

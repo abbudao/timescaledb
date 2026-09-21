@@ -66,6 +66,9 @@ covering each rule: with a unique index, with a `seq bigint` column and no
 index, with statistics only, and with nothing applicable. Show the returned
 JSON and the resulting `compression_settings`.
 
+Install and test sequences go through `experiments/date-probe/bin/locked.sh`
+as one command, see "Working in a worktree" in the README. Unlocked:
+
 ```bash
 make -C build -j"$(nproc)" && make -C build install
 SUITE=tsl experiments/date-probe/bin/regress.sh compression_defaults compression_ddl compression_settings

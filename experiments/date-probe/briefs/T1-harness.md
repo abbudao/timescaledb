@@ -161,6 +161,12 @@ Variants to support from day one, selected by flags, not by editing SQL:
 
 ## Steps
 
+Every harness run exercises the system-wide extension, so run it through
+`experiments/date-probe/bin/locked.sh` preceded by `make -C build install`
+from your worktree, as described under "Working in a worktree" in the README.
+The baseline numbers are only valid if your worktree is unmodified `main`
+apart from `experiments/`.
+
 1. `harness/pg/start.sh`, `stop.sh`; verify `SELECT extversion FROM pg_extension`.
 2. `harness/sql/*.sql` in the order setup, schema, load, snapshot, compress, queries, storage.
 3. `harness/run.sh`, `harness/repro.sh`, `harness/README.md` documenting knobs and how to add a query.

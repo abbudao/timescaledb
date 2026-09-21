@@ -27,6 +27,11 @@ Forbidden: everything else.
 
 ## Matrix
 
+Run every harness invocation through `experiments/date-probe/bin/locked.sh`
+preceded by `make -C build install` from your worktree, see "Working in a
+worktree" in the README. Your worktree must be unmodified `main` apart from
+`experiments/`.
+
 Run the harness on `metrics_date` at `small` scale for every cell:
 
 | chunk interval | default index |

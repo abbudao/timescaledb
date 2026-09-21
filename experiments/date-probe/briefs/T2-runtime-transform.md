@@ -110,6 +110,9 @@ the test into a `.sql.in` template and say so in the report.
 
 ## Commands
 
+Install and test sequences go through `experiments/date-probe/bin/locked.sh`
+as one command, see "Working in a worktree" in the README. Unlocked:
+
 ```bash
 make -C build -j"$(nproc)" && make -C build install
 clang-format -i src/nodes/chunk_append/transform.c src/planner/date_bounds.[ch]

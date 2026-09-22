@@ -485,3 +485,106 @@ SELECT count(compress_chunk(x)) FROM show_chunks('test_exclude_datetype') x;
 SELECT * FROM timescaledb_information.chunk_compression_settings WHERE hypertable = 'test_exclude_datetype'::regclass ORDER BY chunk LIMIT 1;
 
 DROP TABLE test_exclude_datetype;
+
+---------------------------------------------------------------------------
+-- DATE dimension order by tiebreaker
+--
+-- A DATE dimension has one distinct value per day, so without a tiebreaker
+-- the rows of a day land in a compressed batch in arbitrary order. The
+-- default order by appends one extra column when the leading order by
+-- column is an open dimension of type date.
+---------------------------------------------------------------------------
+
+-- rule 1: a column of a unique index
+CREATE TABLE date_tiebreak_index (
+    day date NOT NULL,
+    device text NOT NULL,
+    seq bigint NOT NULL,
+    val double precision
+) WITH (autovacuum_enabled=0);
+SELECT create_hypertable('public.date_tiebreak_index', 'day', create_default_indexes=>false);
+CREATE UNIQUE INDEX date_tiebreak_index_idx ON date_tiebreak_index(day) INCLUDE (seq);
+INSERT INTO date_tiebreak_index
+SELECT '2024-01-01'::date + i, 'dev1', i, i::float FROM generate_series(1, 6) i;
+SELECT _timescaledb_functions.get_orderby_defaults('public.date_tiebreak_index', ARRAY['device']);
+ALTER TABLE date_tiebreak_index SET (timescaledb.compress = true, timescaledb.compress_segmentby = 'device');
+SELECT count(compress_chunk(x)) > 0 AS compressed FROM show_chunks('date_tiebreak_index') x;
+SELECT DISTINCT segmentby, orderby FROM timescaledb_information.chunk_compression_settings
+WHERE hypertable = 'date_tiebreak_index'::regclass;
+
+-- rule 2: a monotonic-looking column, no index and no statistics
+CREATE TABLE date_tiebreak_seq (
+    day date NOT NULL,
+    device text NOT NULL,
+    seq bigint NOT NULL,
+    val double precision
+) WITH (autovacuum_enabled=0);
+SELECT create_hypertable('public.date_tiebreak_seq', 'day', create_default_indexes=>false);
+INSERT INTO date_tiebreak_seq
+SELECT '2024-01-01'::date + (i % 3), 'dev' || (i % 2), i, i::float FROM generate_series(1, 20) i;
+SELECT _timescaledb_functions.get_orderby_defaults('public.date_tiebreak_seq', ARRAY['device']);
+ALTER TABLE date_tiebreak_seq SET (timescaledb.compress = true, timescaledb.compress_segmentby = 'device');
+SELECT count(compress_chunk(x)) > 0 AS compressed FROM show_chunks('date_tiebreak_seq') x;
+SELECT DISTINCT segmentby, orderby FROM timescaledb_information.chunk_compression_settings
+WHERE hypertable = 'date_tiebreak_seq'::regclass;
+
+-- rule 3: statistics only, the most distinct values win
+CREATE TABLE date_tiebreak_stats (
+    day date NOT NULL,
+    region text NOT NULL,
+    host text NOT NULL,
+    reading double precision
+) WITH (autovacuum_enabled=0);
+SELECT create_hypertable('public.date_tiebreak_stats', 'day', create_default_indexes=>false);
+INSERT INTO date_tiebreak_stats
+SELECT '2024-01-01'::date + (i % 20), 'region_' || (i % 4), 'host_' || (i % 400), (i % 50)::float
+FROM generate_series(1, 2000) i;
+ANALYZE date_tiebreak_stats;
+SELECT _timescaledb_functions.get_orderby_defaults('public.date_tiebreak_stats', ARRAY['region']);
+ALTER TABLE date_tiebreak_stats SET (timescaledb.compress = true, timescaledb.compress_segmentby = 'region');
+SELECT count(compress_chunk(x)) > 0 AS compressed FROM show_chunks('date_tiebreak_stats') x;
+SELECT DISTINCT segmentby, orderby FROM timescaledb_information.chunk_compression_settings
+WHERE hypertable = 'date_tiebreak_stats'::regclass;
+
+-- rule 4: nothing applicable, the order by is left alone
+CREATE TABLE date_tiebreak_none (
+    day date NOT NULL,
+    device text NOT NULL,
+    note text
+) WITH (autovacuum_enabled=0);
+SELECT create_hypertable('public.date_tiebreak_none', 'day', create_default_indexes=>false);
+INSERT INTO date_tiebreak_none
+SELECT '2024-01-01'::date + (i % 3), 'dev' || (i % 2), 'note' || i FROM generate_series(1, 20) i;
+SELECT _timescaledb_functions.get_orderby_defaults('public.date_tiebreak_none', ARRAY['device']);
+ALTER TABLE date_tiebreak_none SET (timescaledb.compress = true, timescaledb.compress_segmentby = 'device');
+SELECT count(compress_chunk(x)) > 0 AS compressed FROM show_chunks('date_tiebreak_none') x;
+SELECT DISTINCT segmentby, orderby FROM timescaledb_information.chunk_compression_settings
+WHERE hypertable = 'date_tiebreak_none'::regclass;
+
+-- control: a timestamptz dimension is not touched even with a seq column
+CREATE TABLE date_tiebreak_tstz (
+    ts timestamptz NOT NULL,
+    device text NOT NULL,
+    seq bigint NOT NULL,
+    val double precision
+) WITH (autovacuum_enabled=0);
+SELECT create_hypertable('public.date_tiebreak_tstz', 'ts', create_default_indexes=>false);
+SELECT _timescaledb_functions.get_orderby_defaults('public.date_tiebreak_tstz', ARRAY['device']);
+
+-- control: a DATE dimension that is not the leading order by column is not touched
+CREATE TABLE date_tiebreak_notfirst (
+    day date NOT NULL,
+    device text NOT NULL,
+    seq bigint NOT NULL,
+    val double precision
+) WITH (autovacuum_enabled=0);
+SELECT create_hypertable('public.date_tiebreak_notfirst', 'day', create_default_indexes=>false);
+CREATE UNIQUE INDEX date_tiebreak_notfirst_idx ON date_tiebreak_notfirst(device, day);
+SELECT _timescaledb_functions.get_orderby_defaults('public.date_tiebreak_notfirst', ARRAY[]::text[]);
+
+DROP TABLE date_tiebreak_index;
+DROP TABLE date_tiebreak_seq;
+DROP TABLE date_tiebreak_stats;
+DROP TABLE date_tiebreak_none;
+DROP TABLE date_tiebreak_tstz;
+DROP TABLE date_tiebreak_notfirst;

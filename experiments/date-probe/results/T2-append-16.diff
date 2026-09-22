@@ -1,0 +1,18 @@
+diff -u /home/user/timescaledb/.claude/worktrees/agent-a60925aa01f171cca/test/expected/append-16.out /home/user/timescaledb/.claude/worktrees/agent-a60925aa01f171cca/build/test/results/append-16.out
+--- /home/user/timescaledb/.claude/worktrees/agent-a60925aa01f171cca/test/expected/append-16.out	2026-09-21 23:57:08.524216401 +0000
++++ /home/user/timescaledb/.claude/worktrees/agent-a60925aa01f171cca/build/test/results/append-16.out	2026-09-22 00:35:46.296163388 +0000
+@@ -583,13 +583,11 @@
+ --- QUERY PLAN ---
+  Custom Scan (ChunkAppend) on metrics_date (actual rows=1440.00 loops=1)
+    Order: metrics_date."time"
+-   Chunks excluded during startup: 2
++   Chunks excluded during startup: 3
+    ->  Index Scan Backward using _hyper_3_9_chunk_metrics_date_time_idx on _hyper_3_9_chunk (actual rows=1152.00 loops=1)
+          Index Cond: (("time" > 'Sat Jan 15 00:00:00 2000 PST'::timestamp with time zone) AND ("time" < 'Fri Jan 21 00:00:00 2000 PST'::timestamp with time zone))
+    ->  Index Scan Backward using _hyper_3_10_chunk_metrics_date_time_idx on _hyper_3_10_chunk (actual rows=288.00 loops=1)
+          Index Cond: (("time" > 'Sat Jan 15 00:00:00 2000 PST'::timestamp with time zone) AND ("time" < 'Fri Jan 21 00:00:00 2000 PST'::timestamp with time zone))
+-   ->  Index Scan Backward using _hyper_3_11_chunk_metrics_date_time_idx on _hyper_3_11_chunk (actual rows=0.00 loops=1)
+-         Index Cond: (("time" > 'Sat Jan 15 00:00:00 2000 PST'::timestamp with time zone) AND ("time" < 'Fri Jan 21 00:00:00 2000 PST'::timestamp with time zone))
+ 
+ -- test constraint_exclusion with timestamp time dimension and DATE/TIMESTAMP/TIMESTAMPTZ constraints
+ -- the queries should all have 3 chunks

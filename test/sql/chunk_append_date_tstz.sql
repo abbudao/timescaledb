@@ -136,11 +136,23 @@ DEALLOCATE p_eq;
 RESET plan_cache_mode;
 
 -- an InitPlan parameter is only known at runtime; this is the path that
--- timescaledb.enable_runtime_exclusion switches off
-:PREFIX SELECT count(*) FROM date_ca WHERE day < (SELECT '2020-03-08 12:00:00'::timestamptz);
+-- timescaledb.enable_runtime_exclusion switches off. Only the exclusion
+-- counters of the plan are shown because the InitPlan header that EXPLAIN
+-- prints differs between PostgreSQL versions.
+CREATE FUNCTION date_ca_exclusion(q text) RETURNS SETOF text LANGUAGE plpgsql AS $$
+DECLARE
+  line text;
+BEGIN
+  FOR line IN EXECUTE 'EXPLAIN (ANALYZE, BUFFERS OFF, COSTS OFF, TIMING OFF, SUMMARY OFF) ' || q LOOP
+    IF line LIKE '%Chunks excluded during%' THEN
+      RETURN NEXT btrim(line);
+    END IF;
+  END LOOP;
+END $$;
+SELECT * FROM date_ca_exclusion($$SELECT count(*) FROM date_ca WHERE day < (SELECT '2020-03-08 12:00:00'::timestamptz)$$);
 SELECT count(*) FROM date_ca WHERE day < (SELECT '2020-03-08 12:00:00'::timestamptz);
 SET timescaledb.enable_runtime_exclusion TO off;
-:PREFIX SELECT count(*) FROM date_ca WHERE day < (SELECT '2020-03-08 12:00:00'::timestamptz);
+SELECT * FROM date_ca_exclusion($$SELECT count(*) FROM date_ca WHERE day < (SELECT '2020-03-08 12:00:00'::timestamptz)$$);
 SELECT count(*) FROM date_ca WHERE day < (SELECT '2020-03-08 12:00:00'::timestamptz);
 RESET timescaledb.enable_runtime_exclusion;
 

@@ -1,0 +1,19 @@
+               run_id               |  variant  | git_sha | scale | days | devices | rows_per_device_day | chunk_interval | extversion |              pg_version               
+------------------------------------+-----------+---------+-------+------+---------+---------------------+----------------+------------+---------------------------------------
+ t2-before-7c8a54d-20260922T004047Z | t2-before | 7c8a54d | small |  400 |     200 |                  24 | 7 days         | 2.31.0-dev | 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+
+
+-- median of three runs
+ query_id |     tbl      | exec_ms | plan_ms | chunks_in_plan | chunks_excluded_startup | vectorized_filter | rows | scan_rows | shared_hit | shared_read 
+----------+--------------+---------+---------+----------------+-------------------------+-------------------+------+-----------+------------+-------------
+ Q1       | metrics_date |   21.10 |    3.79 |            116 |                       0 | f                 |    1 |    260934 |       6401 |           0
+ Q1       | metrics_tstz |    5.93 |    0.44 |             10 |                       0 | t                 |    1 |    290000 |       6025 |           0
+ Q2       | metrics_date |   14.95 |    3.58 |             10 |                     106 | t                 |    1 |    299600 |       6025 |           0
+ Q2       | metrics_tstz |   16.14 |    4.11 |             10 |                     106 | t                 |    1 |    299600 |       6025 |           0
+ Q3       | metrics_date |    4.57 |    0.34 |             10 |                       0 | t                 |    1 |    299600 |       4225 |           0
+ Q3       | metrics_tstz |    4.66 |    0.33 |             10 |                       0 | t                 |    1 |    299600 |       4225 |           0
+ Q4       | metrics_date |   21.08 |    0.37 |             10 |                       0 | t                 | 1000 |    299600 |       9025 |           0
+ Q4       | metrics_tstz |   15.95 |    0.36 |             10 |                       0 | t                 | 1000 |    299600 |       9025 |           0
+ Q5       | metrics_date |    0.04 |    0.14 |              2 |                       0 | t                 |   24 |        26 |         23 |           0
+ Q5       | metrics_tstz |    0.04 |    0.14 |              2 |                       0 | t                 |   24 |        26 |         23 |           0
+

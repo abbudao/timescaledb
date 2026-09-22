@@ -332,35 +332,24 @@ DEALLOCATE p_ge;
 DEALLOCATE p_eq;
 RESET plan_cache_mode;
 -- an InitPlan parameter is only known at runtime; this is the path that
--- timescaledb.enable_runtime_exclusion switches off
-:PREFIX SELECT count(*) FROM date_ca WHERE day < (SELECT '2020-03-08 12:00:00'::timestamptz);
---- QUERY PLAN ---
- Aggregate (actual rows=1.00 loops=1)
-   InitPlan 1 (returns $0)
-     ->  Result (actual rows=1.00 loops=1)
-   ->  Custom Scan (ChunkAppend) on date_ca (actual rows=5.00 loops=1)
-         Chunks excluded during startup: 0
-         Chunks excluded during runtime: 5
-         ->  Seq Scan on _hyper_1_1_chunk (actual rows=1.00 loops=1)
-               Filter: (day < $0)
-         ->  Seq Scan on _hyper_1_2_chunk (actual rows=1.00 loops=1)
-               Filter: (day < $0)
-         ->  Seq Scan on _hyper_1_3_chunk (actual rows=1.00 loops=1)
-               Filter: (day < $0)
-         ->  Seq Scan on _hyper_1_4_chunk (actual rows=1.00 loops=1)
-               Filter: (day < $0)
-         ->  Seq Scan on _hyper_1_5_chunk (actual rows=1.00 loops=1)
-               Filter: (day < $0)
-         ->  Seq Scan on _hyper_1_6_chunk (never executed)
-               Filter: (day < $0)
-         ->  Seq Scan on _hyper_1_7_chunk (never executed)
-               Filter: (day < $0)
-         ->  Seq Scan on _hyper_1_8_chunk (never executed)
-               Filter: (day < $0)
-         ->  Seq Scan on _hyper_1_9_chunk (never executed)
-               Filter: (day < $0)
-         ->  Seq Scan on _hyper_1_10_chunk (never executed)
-               Filter: (day < $0)
+-- timescaledb.enable_runtime_exclusion switches off. Only the exclusion
+-- counters of the plan are shown because the InitPlan header that EXPLAIN
+-- prints differs between PostgreSQL versions.
+CREATE FUNCTION date_ca_exclusion(q text) RETURNS SETOF text LANGUAGE plpgsql AS $$
+DECLARE
+  line text;
+BEGIN
+  FOR line IN EXECUTE 'EXPLAIN (ANALYZE, BUFFERS OFF, COSTS OFF, TIMING OFF, SUMMARY OFF) ' || q LOOP
+    IF line LIKE '%Chunks excluded during%' THEN
+      RETURN NEXT btrim(line);
+    END IF;
+  END LOOP;
+END $$;
+SELECT * FROM date_ca_exclusion($$SELECT count(*) FROM date_ca WHERE day < (SELECT '2020-03-08 12:00:00'::timestamptz)$$);
+         date_ca_exclusion         
+-----------------------------------
+ Chunks excluded during startup: 0
+ Chunks excluded during runtime: 5
 
 SELECT count(*) FROM date_ca WHERE day < (SELECT '2020-03-08 12:00:00'::timestamptz);
  count 
@@ -368,38 +357,10 @@ SELECT count(*) FROM date_ca WHERE day < (SELECT '2020-03-08 12:00:00'::timestam
      5
 
 SET timescaledb.enable_runtime_exclusion TO off;
-:PREFIX SELECT count(*) FROM date_ca WHERE day < (SELECT '2020-03-08 12:00:00'::timestamptz);
---- QUERY PLAN ---
- Aggregate (actual rows=1.00 loops=1)
-   InitPlan 1 (returns $0)
-     ->  Result (actual rows=1.00 loops=1)
-   ->  Custom Scan (ChunkAppend) on date_ca (actual rows=5.00 loops=1)
-         Chunks excluded during startup: 0
-         ->  Seq Scan on _hyper_1_1_chunk (actual rows=1.00 loops=1)
-               Filter: (day < $0)
-         ->  Seq Scan on _hyper_1_2_chunk (actual rows=1.00 loops=1)
-               Filter: (day < $0)
-         ->  Seq Scan on _hyper_1_3_chunk (actual rows=1.00 loops=1)
-               Filter: (day < $0)
-         ->  Seq Scan on _hyper_1_4_chunk (actual rows=1.00 loops=1)
-               Filter: (day < $0)
-         ->  Seq Scan on _hyper_1_5_chunk (actual rows=1.00 loops=1)
-               Filter: (day < $0)
-         ->  Seq Scan on _hyper_1_6_chunk (actual rows=0.00 loops=1)
-               Filter: (day < $0)
-               Rows Removed by Filter: 1
-         ->  Seq Scan on _hyper_1_7_chunk (actual rows=0.00 loops=1)
-               Filter: (day < $0)
-               Rows Removed by Filter: 1
-         ->  Seq Scan on _hyper_1_8_chunk (actual rows=0.00 loops=1)
-               Filter: (day < $0)
-               Rows Removed by Filter: 1
-         ->  Seq Scan on _hyper_1_9_chunk (actual rows=0.00 loops=1)
-               Filter: (day < $0)
-               Rows Removed by Filter: 1
-         ->  Seq Scan on _hyper_1_10_chunk (actual rows=0.00 loops=1)
-               Filter: (day < $0)
-               Rows Removed by Filter: 1
+SELECT * FROM date_ca_exclusion($$SELECT count(*) FROM date_ca WHERE day < (SELECT '2020-03-08 12:00:00'::timestamptz)$$);
+         date_ca_exclusion         
+-----------------------------------
+ Chunks excluded during startup: 0
 
 SELECT count(*) FROM date_ca WHERE day < (SELECT '2020-03-08 12:00:00'::timestamptz);
  count 

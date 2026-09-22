@@ -1,0 +1,27 @@
+run_id,variant,git_sha,tbl,colname,coltype,uncompressed_bytes,compressed_bytes,uncompressed_bytes_per_row,compressed_bytes_per_row,ratio,batches,avg_meta_count
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_date,day,date,7680000,635200,4.000,0.331,12.091,2800,685.7142857142857
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_date,device_id,integer,7680000,11200,4.000,0.006,685.714,2800,685.7142857142857
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_date,region_id,integer,7680000,143360,4.000,0.075,53.571,2800,685.7142857142857
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_date,seq,bigint,15360000,2095456,8.000,1.091,7.330,2800,685.7142857142857
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_date,status,text,8958633,695200,4.666,0.362,12.886,2800,685.7142857142857
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_date,v1,double precision,15360000,12557352,8.000,6.540,1.223,2800,685.7142857142857
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_date,v2,double precision,15360000,13941704,8.000,7.261,1.102,2800,685.7142857142857
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_date,v3,integer,7680000,2347816,4.000,1.223,3.271,2800,685.7142857142857
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_date,(columns),,85758633,32427288,44.666,16.889,2.645,,
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_date,(heap),,157868032,1376256,82.223,0.717,114.708,,
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_date,(index),,0,229376,0.000,0.119,0.000,,
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_date,(toast),,114688,36372480,0.060,18.944,0.003,,
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_date,(total),,157982720,37978112,82.283,19.780,4.160,,
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_tstz,device_id,integer,7680000,11200,4.000,0.006,685.714,2800,685.7142857142857
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_tstz,region_id,integer,7680000,143360,4.000,0.075,53.571,2800,685.7142857142857
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_tstz,seq,bigint,15360000,2095456,8.000,1.091,7.330,2800,685.7142857142857
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_tstz,status,text,8958633,695200,4.666,0.362,12.886,2800,685.7142857142857
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_tstz,ts,timestamp with time zone,15360000,2787200,8.000,1.452,5.511,2800,685.7142857142857
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_tstz,v1,double precision,15360000,12557352,8.000,6.540,1.223,2800,685.7142857142857
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_tstz,v2,double precision,15360000,13941704,8.000,7.261,1.102,2800,685.7142857142857
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_tstz,v3,integer,7680000,2347816,4.000,1.223,3.271,2800,685.7142857142857
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_tstz,(columns),,93438633,34579288,48.666,18.010,2.702,,
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_tstz,(heap),,157868032,1376256,82.223,0.717,114.708,,
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_tstz,(index),,0,229376,0.000,0.119,0.000,,
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_tstz,(toast),,114688,38641664,0.060,20.126,0.003,,
+defaults-30d-noindex-1dc07b9-20260922T010622Z,defaults-30d-noindex,1dc07b9,metrics_tstz,(total),,157982720,40247296,82.283,20.962,3.925,,

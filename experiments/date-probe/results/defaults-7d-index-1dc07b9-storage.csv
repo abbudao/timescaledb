@@ -1,0 +1,27 @@
+run_id,variant,git_sha,tbl,colname,coltype,uncompressed_bytes,compressed_bytes,uncompressed_bytes_per_row,compressed_bytes_per_row,ratio,batches,avg_meta_count
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_date,day,date,7680000,1059400,4.000,0.552,7.249,11600,165.51724137931035
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_date,device_id,integer,7680000,46400,4.000,0.024,165.517,11600,165.51724137931035
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_date,region_id,integer,7680000,594120,4.000,0.309,12.927,11600,165.51724137931035
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_date,seq,bigint,15360000,2322376,8.000,1.210,6.614,11600,165.51724137931035
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_date,status,text,8961521,1314600,4.667,0.685,6.817,11600,165.51724137931035
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_date,v1,double precision,15360000,13352520,8.000,6.954,1.150,11600,165.51724137931035
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_date,v2,double precision,15360000,14837240,8.000,7.728,1.035,11600,165.51724137931035
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_date,v3,integer,7680000,2658440,4.000,1.385,2.889,11600,165.51724137931035
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_date,(columns),,85761521,36185096,44.667,18.846,2.370,,
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_date,(heap),,159629312,6160384,83.140,3.209,25.912,,
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_date,(index),,14057472,950272,7.322,0.495,14.793,,
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_date,(toast),,475136,48005120,0.247,25.003,0.010,,
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_date,(total),,174161920,55115776,90.709,28.706,3.160,,
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_tstz,device_id,integer,7680000,46400,4.000,0.024,165.517,11600,165.51724137931035
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_tstz,region_id,integer,7680000,594120,4.000,0.309,12.927,11600,165.51724137931035
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_tstz,seq,bigint,15360000,2322376,8.000,1.210,6.614,11600,165.51724137931035
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_tstz,status,text,8961521,1314600,4.667,0.685,6.817,11600,165.51724137931035
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_tstz,ts,timestamp with time zone,15360000,2976200,8.000,1.550,5.161,11600,165.51724137931035
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_tstz,v1,double precision,15360000,13352520,8.000,6.954,1.150,11600,165.51724137931035
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_tstz,v2,double precision,15360000,14837240,8.000,7.728,1.035,11600,165.51724137931035
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_tstz,v3,integer,7680000,2658440,4.000,1.385,2.889,11600,165.51724137931035
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_tstz,(columns),,93441521,38101896,48.667,19.845,2.452,,
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_tstz,(heap),,159629312,6160384,83.140,3.209,25.912,,
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_tstz,(index),,14057472,950272,7.322,0.495,14.793,,
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_tstz,(toast),,475136,51208192,0.247,26.671,0.009,,
+defaults-7d-index-1dc07b9-20260922T010442Z,defaults-7d-index,1dc07b9,metrics_tstz,(total),,174161920,58318848,90.709,30.374,2.986,,

@@ -1061,9 +1061,9 @@ select * from date_table where ts <  CURRENT_DATE;
 
 -- A date column vs a timestamptz constant is rewritten into a date vs date
 -- comparison against a bound derived from the constant with PostgreSQL's own
--- cast functions, so all inequality operators are vectorized. '>' and '<='
--- round the bound down to the date, '>=' and '<' round it up unless it is a
--- local midnight.
+-- cast functions, so all five operators are vectorized. '>' and '<=' round
+-- the bound down to the date, '>=' and '<' round it up unless it is a local
+-- midnight.
 select * from date_table where ts >  '2021-01-02 12:00:00+00'::timestamptz;
      ts     
 ------------
@@ -1128,10 +1128,9 @@ explain (costs off) select * from date_table where ts >= '2021-01-02 12:00:00+00
          ->  Index Scan using _hyper_4_8_chunk_compressed__ts_meta_v2_first_ts__ts_meta_v_idx on _hyper_4_8_chunk_compressed
                Index Cond: (_ts_meta_v2_first_ts >= 'Sat Jan 02 04:00:00 2021 PST'::timestamp with time zone)
 
--- Equality is rewritten into "ts = T::date AND T::date::timestamptz = T". The
--- second conjunct has no Var, so the vectorized qual path cannot take it and
--- the original cross-type comparison is executed instead.
-set timescaledb.debug_require_vector_qual to 'forbid';
+-- Equality is rewritten into the range "ts >= ceil(T) AND ts <= floor(T)",
+-- which is one day wide when T is a local midnight and empty otherwise, so
+-- it is vectorized like the inequalities.
 select * from date_table where ts =  '2021-01-02 12:00:00+00'::timestamptz;
  ts 
 ----
@@ -1151,11 +1150,10 @@ explain (costs off) select * from date_table where ts = '2021-01-02 00:00:00'::t
  Custom Scan (ChunkAppend) on date_table
    Chunks excluded during startup: 0
    ->  Custom Scan (ColumnarScan) on _hyper_4_8_chunk
-         Filter: (ts = 'Sat Jan 02 00:00:00 2021 PST'::timestamp with time zone)
+         Vectorized Filter: ((ts >= CASE WHEN (timestamptz(date('Sat Jan 02 00:00:00 2021 PST'::timestamp with time zone)) = 'Sat Jan 02 00:00:00 2021 PST'::timestamp with time zone) THEN date('Sat Jan 02 00:00:00 2021 PST'::timestamp with time zone) ELSE date_pli(date('Sat Jan 02 00:00:00 2021 PST'::timestamp with time zone), 1) END) AND (ts <= date('Sat Jan 02 00:00:00 2021 PST'::timestamp with time zone)))
          ->  Index Scan using _hyper_4_8_chunk_compressed__ts_meta_v2_first_ts__ts_meta_v_idx on _hyper_4_8_chunk_compressed
                Index Cond: ((_ts_meta_v2_first_ts >= 'Sat Jan 02 00:00:00 2021 PST'::timestamp with time zone) AND (_ts_meta_v2_last_ts <= 'Sat Jan 02 00:00:00 2021 PST'::timestamp with time zone))
 
-set timescaledb.debug_require_vector_qual to 'require';
 -- Text columns.
 create table text_table(ts int, d int);
 select create_hypertable('text_table', 'ts');

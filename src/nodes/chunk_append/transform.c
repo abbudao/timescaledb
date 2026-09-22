@@ -43,16 +43,73 @@ commute_strategy(StrategyNumber strategy)
 }
 
 /*
+ * Build "date_arg OP bound" (or "bound OP date_arg" when the Var was on the
+ * right) with the DATE-versus-DATE operator named opname. The operator name
+ * is given as seen from the DATE side; it is commuted when the bound goes to
+ * the left. Returns NULL if the operator is not found.
+ */
+static Expr *
+make_date_comparison(const char *opname_from_date_side, Expr *date_arg, Expr *bound,
+					 bool date_on_left)
+{
+	const char *opname = opname_from_date_side;
+	Oid opno;
+
+	if (!date_on_left)
+	{
+		if (strcmp(opname, ">=") == 0)
+		{
+			opname = "<=";
+		}
+		else if (strcmp(opname, "<=") == 0)
+		{
+			opname = ">=";
+		}
+		else if (strcmp(opname, ">") == 0)
+		{
+			opname = "<";
+		}
+		else if (strcmp(opname, "<") == 0)
+		{
+			opname = ">";
+		}
+	}
+
+	opno = ts_get_operator(opname, PG_CATALOG_NAMESPACE, DATEOID, DATEOID);
+	if (!OidIsValid(opno))
+	{
+		return NULL;
+	}
+
+	if (date_on_left)
+	{
+		return make_opclause(opno,
+							 BOOLOID,
+							 false,
+							 copyObject(date_arg),
+							 bound,
+							 InvalidOid,
+							 InvalidOid);
+	}
+
+	return make_opclause(opno, BOOLOID, false, bound, copyObject(date_arg), InvalidOid, InvalidOid);
+}
+
+/*
  * DATE OP TIMESTAMPTZ (or TIMESTAMPTZ OP DATE) with the Var on the DATE side.
  *
  * Casting the TIMESTAMPTZ side down to DATE rounds it down to local midnight,
  * which keeps "date > value" and "date <= value" equivalent. For ">=" and "<"
- * the bound has to be rounded up instead, and "=" needs the additional
- * condition that the value is a local midnight at all. The bounds are built
- * by ts_make_date_bound_expr() out of PostgreSQL's own cast functions, so
+ * the bound has to be rounded up instead. "d = T" holds exactly when the
+ * local midnight of d is T, which is the range "d >= ceil(T) AND d <= floor(T)":
+ * one day wide when T is a local midnight and empty otherwise. The bounds are
+ * built by planner/date_bounds.c out of PostgreSQL's own cast functions, so
  * DST resolution is identical to the original comparison by construction.
- * The original argument order is preserved so the TIMESTAMPTZ side is
- * replaced in place.
+ *
+ * Every rewrite is exactly equivalent to the original clause, which the
+ * vectorized qual path of ColumnarScan relies on: there the rewritten clause
+ * replaces the executed filter. The original argument order is preserved so
+ * the TIMESTAMPTZ side is replaced in place.
  */
 static Expr *
 transform_date_timestamptz_comparison(OpExpr *op, bool date_on_left)
@@ -64,7 +121,6 @@ transform_date_timestamptz_comparison(OpExpr *op, bool date_on_left)
 	Expr *bound;
 	Expr *result;
 	bool exact = false;
-	Oid opno;
 
 	/* express the strategy as seen from the DATE side */
 	if (!date_on_left)
@@ -72,57 +128,47 @@ transform_date_timestamptz_comparison(OpExpr *op, bool date_on_left)
 		strategy = commute_strategy(strategy);
 	}
 
-	bound = ts_make_date_bound_expr(tstz_arg, strategy, &exact);
-	if (bound == NULL)
+	if (strategy == BTEqualStrategyNumber)
 	{
-		return (Expr *) op;
-	}
+		Expr *ceil = ts_make_date_ceil_expr(tstz_arg);
+		Expr *floor = ts_make_date_floor_expr(tstz_arg);
+		Expr *lower;
+		Expr *upper;
 
-	opno = ts_get_operator(get_opname(op->opno), PG_CATALOG_NAMESPACE, DATEOID, DATEOID);
-	if (!OidIsValid(opno))
-	{
-		return (Expr *) op;
-	}
-
-	if (date_on_left)
-	{
-		result = make_opclause(opno,
-							   BOOLOID,
-							   false,
-							   copyObject(date_arg),
-							   bound,
-							   InvalidOid,
-							   InvalidOid);
-	}
-	else
-	{
-		result = make_opclause(opno,
-							   BOOLOID,
-							   false,
-							   bound,
-							   copyObject(date_arg),
-							   InvalidOid,
-							   InvalidOid);
-	}
-
-	if (!exact)
-	{
-		/*
-		 * "d = floor(T)" is only a necessary condition for "d = T". The
-		 * rewritten clause replaces the executed filter in the vectorized
-		 * qual path of ColumnarScan, so it has to stay exactly equivalent:
-		 * AND in the check that T is a local midnight.
-		 */
-		Expr *is_midnight;
-
-		Assert(strategy == BTEqualStrategyNumber);
-		is_midnight = ts_make_date_is_midnight_expr(tstz_arg);
-		if (is_midnight == NULL)
+		if (ceil == NULL || floor == NULL)
 		{
 			return (Expr *) op;
 		}
 
-		result = make_andclause(list_make2(result, is_midnight));
+		lower = make_date_comparison(">=", date_arg, ceil, date_on_left);
+		upper = make_date_comparison("<=", date_arg, floor, date_on_left);
+		if (lower == NULL || upper == NULL)
+		{
+			return (Expr *) op;
+		}
+
+		return make_andclause(list_make2(lower, upper));
+	}
+
+	bound = ts_make_date_bound_expr(tstz_arg, strategy, &exact);
+	if (bound == NULL || !exact)
+	{
+		return (Expr *) op;
+	}
+
+	/* same operator name on both sides of the rewrite, so no commuting here */
+	result = make_date_comparison(get_opname(op->opno), date_arg, bound, true);
+	if (result == NULL)
+	{
+		return (Expr *) op;
+	}
+
+	if (!date_on_left)
+	{
+		/* restore the original argument order: bound OP date */
+		OpExpr *opexpr = castNode(OpExpr, result);
+
+		opexpr->args = list_make2(lsecond(opexpr->args), linitial(opexpr->args));
 	}
 
 	return result;

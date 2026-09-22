@@ -414,9 +414,9 @@ select * from date_table where ts <  CURRENT_DATE;
 
 -- A date column vs a timestamptz constant is rewritten into a date vs date
 -- comparison against a bound derived from the constant with PostgreSQL's own
--- cast functions, so all inequality operators are vectorized. '>' and '<='
--- round the bound down to the date, '>=' and '<' round it up unless it is a
--- local midnight.
+-- cast functions, so all five operators are vectorized. '>' and '<=' round
+-- the bound down to the date, '>=' and '<' round it up unless it is a local
+-- midnight.
 select * from date_table where ts >  '2021-01-02 12:00:00+00'::timestamptz;
 select * from date_table where ts <= '2021-01-02 12:00:00+00'::timestamptz;
 select * from date_table where ts <  '2021-01-02 12:00:00+00'::timestamptz;
@@ -428,15 +428,13 @@ select * from date_table where '2021-01-02 12:00:00+00'::timestamptz >= ts;
 select * from date_table where '2021-01-02 12:00:00+00'::timestamptz >  ts;
 select * from date_table where '2021-01-02 12:00:00+00'::timestamptz <= ts;
 explain (costs off) select * from date_table where ts >= '2021-01-02 12:00:00+00'::timestamptz;
--- Equality is rewritten into "ts = T::date AND T::date::timestamptz = T". The
--- second conjunct has no Var, so the vectorized qual path cannot take it and
--- the original cross-type comparison is executed instead.
-set timescaledb.debug_require_vector_qual to 'forbid';
+-- Equality is rewritten into the range "ts >= ceil(T) AND ts <= floor(T)",
+-- which is one day wide when T is a local midnight and empty otherwise, so
+-- it is vectorized like the inequalities.
 select * from date_table where ts =  '2021-01-02 12:00:00+00'::timestamptz;
 select * from date_table where ts =  '2021-01-02 00:00:00'::timestamptz /* local midnight */;
 select * from date_table where '2021-01-02 00:00:00'::timestamptz = ts;
 explain (costs off) select * from date_table where ts = '2021-01-02 00:00:00'::timestamptz;
-set timescaledb.debug_require_vector_qual to 'require';
 
 -- Text columns.
 create table text_table(ts int, d int);

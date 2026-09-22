@@ -32,7 +32,9 @@
  *   d <= T  <=>  d <= floor(T)
  *   d >= T  <=>  d >= ceil(T)
  *   d <  T  <=>  d <  ceil(T)
- *   d =  T  <=>  d =  floor(T) AND floor(T)::timestamptz = T
+ *   d =  T  <=>  d >= ceil(T) AND d <= floor(T)
+ *                (a one-day range when T is a local midnight, empty otherwise;
+ *                 equivalently d = floor(T) AND floor(T)::timestamptz = T)
  *
  * On DST transition days local midnight may not exist or may be ambiguous.
  * PostgreSQL resolves that inside the date-to-timestamptz cast, so the bounds
@@ -158,10 +160,12 @@ ts_make_date_ceil_expr(Expr *tstz_expr)
  * "d STRATEGY B" for a DATE column d, with the strategy seen from the DATE
  * side of the comparison.
  *
- * For BTEqualStrategyNumber only the necessary condition "d = floor(T)" can be
- * expressed as a single bound; *exact is set to false and the caller has to
- * AND in ts_make_date_is_midnight_expr() to get an equivalent clause. For all
- * other supported strategies *exact is set to true.
+ * For BTEqualStrategyNumber no single bound expresses equality: floor(T) is
+ * returned as the necessary condition "d = floor(T)" and *exact is set to
+ * false. Callers that need an equivalent clause build the range
+ * "d >= ts_make_date_ceil_expr(T) AND d <= ts_make_date_floor_expr(T)" (see
+ * nodes/chunk_append/transform.c) or AND in ts_make_date_is_midnight_expr().
+ * For all other supported strategies *exact is set to true.
  *
  * Returns NULL if the strategy is not supported or the expression is not of
  * type TIMESTAMPTZ.

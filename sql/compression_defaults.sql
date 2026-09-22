@@ -297,6 +297,11 @@ DECLARE
     _first_index_attrs NAME[];
     _orderby_clauses text[];
     _confidence int;
+    _is_date_dimension bool;
+    _tiebreaker NAME;
+    _tiebreaker_rule int;
+    _tiebreaker_rows float8;
+    _message text;
 BEGIN
     SELECT n.nspname, c.relname INTO STRICT _schema_name, _table_name
     FROM pg_class c
@@ -366,6 +371,111 @@ BEGIN
 
     _orderby_names := _orderby_names || _first_index_attrs;
 
+    --A DATE dimension has at most one distinct value per day, so a segment with
+    --many rows per day leaves the rows inside a compressed batch in arbitrary
+    --order and every other column loses the temporal locality that deltadelta
+    --and gorilla rely on. When the leading order by column is an open (time)
+    --dimension of type date, look for one extra column to break the tie.
+    SELECT EXISTS (
+      SELECT 1
+      FROM _timescaledb_catalog.dimension d
+      WHERE d.hypertable_id = _hypertable_row.id
+        AND d.column_name = _orderby_names[1]
+        --open (time) dimensions use interval_length, closed ones num_slices
+        AND d.interval_length IS NOT NULL
+        AND d.column_type = 'date'::regtype
+    ) INTO STRICT _is_date_dimension;
+
+    IF _is_date_dimension THEN
+        --rule 1: a column of any unique index that is not already used.
+        --Unlike the block above this looks at every unique index and also at
+        --its INCLUDE columns, since any of them is a deliberate part of a
+        --uniqueness definition on this table.
+        with index_attr as (
+            SELECT
+            a.attnum, min(a.pos) as pos
+            FROM
+                (select indkey from pg_catalog.pg_index where indisunique and indrelid = relation) i
+            INNER JOIN LATERAL
+                (select * from unnest(i.indkey) with ordinality) a(attnum, pos) ON (TRUE)
+            GROUP BY 1
+        )
+        SELECT
+          a.attname INTO _tiebreaker
+        FROM
+          index_attr i
+        INNER JOIN
+          pg_attribute a on (a.attnum = i.attnum AND a.attrelid = relation)
+        WHERE
+              NOT a.attisdropped
+          AND NOT(a.attname::text = ANY (_orderby_names))
+          AND NOT(a.attname::text = ANY (segment_by_cols))
+        ORDER BY i.pos, a.attnum
+        LIMIT 1;
+
+        IF _tiebreaker IS NOT NULL THEN
+            _tiebreaker_rule := 1;
+        END IF;
+
+        --rule 2: a column of a monotonic-looking type whose name looks like a
+        --sequence, an identifier or a finer-grained timestamp.
+        IF _tiebreaker IS NULL THEN
+            SELECT
+              a.attname INTO _tiebreaker
+            FROM
+              pg_attribute a
+            INNER JOIN
+              (VALUES ('seq', 1), ('id', 2), ('ts', 3), ('time', 4), ('created_at', 5), ('updated_at', 6))
+                AS p(pattern, prio) ON (a.attname::text ~* ('(^|_)' || p.pattern || '(_|$)'))
+            WHERE
+                  a.attrelid = relation
+              AND a.attnum > 0
+              AND NOT a.attisdropped
+              AND a.atttypid IN ('bigint'::regtype, 'int'::regtype, 'timestamptz'::regtype, 'timestamp'::regtype)
+              AND NOT(a.attname::text = ANY (_orderby_names))
+              AND NOT(a.attname::text = ANY (segment_by_cols))
+            ORDER BY (a.attname::text = p.pattern) DESC, p.prio, a.attnum
+            LIMIT 1;
+
+            IF _tiebreaker IS NOT NULL THEN
+                _tiebreaker_rule := 2;
+            END IF;
+        END IF;
+
+        --rule 3: when statistics exist, the column with the most distinct
+        --values. n_distinct is negative when it is a fraction of the row
+        --count, so scale it back to a count before comparing.
+        IF _tiebreaker IS NULL THEN
+            SELECT
+              coalesce(sum(c.reltuples), 0) INTO _tiebreaker_rows
+            FROM pg_catalog.pg_inherits inh
+            INNER JOIN pg_catalog.pg_class c ON (c.oid = inh.inhrelid)
+            WHERE inh.inhparent = relation;
+
+            SELECT
+              s.attname INTO _tiebreaker
+            FROM
+              pg_stats s
+            INNER JOIN
+              pg_attribute a on (a.attrelid = relation AND a.attname = s.attname
+                                 AND a.attnum > 0 AND NOT a.attisdropped)
+            WHERE
+                  s.schemaname = _schema_name
+              AND s.tablename = _table_name
+              AND s.inherited = true
+              AND NOT(s.attname::text = ANY (_orderby_names))
+              AND NOT(s.attname::text = ANY (segment_by_cols))
+              AND CASE WHEN s.n_distinct < 0 THEN -s.n_distinct * greatest(_tiebreaker_rows, 1) ELSE s.n_distinct END > 1
+            ORDER BY CASE WHEN s.n_distinct < 0 THEN -s.n_distinct * greatest(_tiebreaker_rows, 1) ELSE s.n_distinct END DESC, a.attnum
+            LIMIT 1;
+
+            IF _tiebreaker IS NOT NULL THEN
+                _tiebreaker_rule := 3;
+            END IF;
+        END IF;
+        --rule 4 is "leave the order by alone" and needs no code
+    END IF;
+
     --add DESC to any dimensions
     SELECT
       coalesce(array_agg(
@@ -377,7 +487,20 @@ BEGIN
     FROM unnest(_orderby_names) WITH ORDINALITY as a(colname, pos)
     LEFT JOIN _timescaledb_catalog.dimension d ON (d.column_name = a.colname AND d.hypertable_id = _hypertable_row.id);
 
+    --the tiebreaker follows the direction of the date dimension it refines
+    IF _tiebreaker IS NOT NULL THEN
+        _orderby_clauses := _orderby_clauses || format('%I DESC', _tiebreaker);
 
-    return json_build_object('clauses', _orderby_clauses, 'confidence', _confidence);
+        IF _tiebreaker_rule > 1 THEN
+            _confidence := greatest(_confidence - 1, 0);
+            _message := format('Column "%s" was appended to the default order by as a tiebreaker for the date dimension "%s". Please make sure it increases within a day, otherwise specify order_by explicitly.', _tiebreaker, _orderby_names[1]);
+        END IF;
+    END IF;
+
+    IF _message IS NULL THEN
+        return json_build_object('clauses', _orderby_clauses, 'confidence', _confidence);
+    ELSE
+        return json_build_object('clauses', _orderby_clauses, 'confidence', _confidence, 'message', _message);
+    END IF;
 END
 $BODY$ SET search_path TO pg_catalog, pg_temp;

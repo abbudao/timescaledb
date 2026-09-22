@@ -47,6 +47,6 @@ Kept current by the orchestrator at every hand-off.
 | T1 | probe/harness | in progress, agent running |
 | T2 | probe/a1-runtime-transform | in progress, agent running |
 | T3 | probe/a2-constify-date | not started, waits for T2 |
-| T4 | probe/b1-orderby-tiebreaker | in progress, agent running |
+| T4 | probe/b1-orderby-tiebreaker | done at a7ee096; tests pass; verdict no-go as default at small scale (value columns -0.53%, metadata +371 KB); re-measure at customer scale in T6; report in results/T4-report.md |
 | T5 | probe/c1-defaults-measurement | not started, waits for T1 |
 | T6 | probe/integration | not started |

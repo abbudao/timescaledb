@@ -62,6 +62,13 @@ ON CONFLICT (run_id, tbl) DO UPDATE
        after_total = excluded.after_total, numrows_pre = excluded.numrows_pre,
        numrows_post = excluded.numrows_post;
 
+-- The orderby the default heuristic settled on, which is what T4 is about.
+SELECT hypertable_name, attname, segmentby_column_index, orderby_column_index,
+       orderby_asc, orderby_nullsfirst
+FROM timescaledb_information.compression_settings
+WHERE hypertable_name IN ('metrics_date', 'metrics_tstz')
+ORDER BY hypertable_name, segmentby_column_index NULLS LAST, orderby_column_index;
+
 SELECT tbl, chunks,
        pg_size_pretty(before_total) AS before_total,
        pg_size_pretty(after_total)  AS after_total,

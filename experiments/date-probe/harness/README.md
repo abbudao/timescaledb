@@ -12,7 +12,7 @@ same harness before and after their change and compare the CSVs.
 harness/
   pg/start.sh pg/stop.sh   dedicated benchmark cluster on port 5433
   sql/                     the steps, in order: setup schema load snapshot
-                           compress queries cagg storage export summary
+                           compress queries cagg storage export-* summary
   run.sh                   one variant end to end -> 3 result files
   repro.sh                 the chunk-exclusion evidence, Q1 side by side
 ```
@@ -141,8 +141,11 @@ summary pick it up automatically.
 
 ## Metrics
 
-Extracted from the stored plan JSON with jsonb path queries (view
-`probe_query_metrics`), never by grepping text:
+Extracted from the stored plan JSON in SQL (view `probe_query_metrics`), never
+by grepping text. The plan tree is walked by `probe_plan_nodes()`, a recursive
+CTE that yields every node exactly once; `jsonb_path_query(plan, '$.**')` is
+not used, because in lax mode recursive descent returns each node twice (once
+inside its `Plans` array and once unwrapped) and every sum over nodes doubles.
 
 | column | how |
 |---|---|
@@ -188,9 +191,16 @@ can be re-analysed without repeating it: start the cluster and query
 
 ## Caveats
 
-- The compressed chunk of a chunk is found through
-  `_timescaledb_catalog.compression_chunk_size`; 2.31 no longer keeps
-  `compressed_chunk_id` on `_timescaledb_catalog.chunk`.
+- 2.31 does not register the compressed relation as a chunk:
+  `_timescaledb_catalog.chunk` has no `compressed_chunk_id` column any more and
+  `compression_chunk_size.compressed_chunk_id` is 0. The only link left is the
+  naming convention `"<chunk table>_compressed"` in the chunk's schema
+  (`tsl/src/compression/create.c`), which is what the per-column collection
+  uses; it raises an error rather than reporting empty columns if a compressed
+  chunk has no such relation.
+- For the same reason the compressed relation shows up in plans as
+  `_hyper_<n>_<n>_chunk_compressed`, not `compress_hyper_%`. The chunk-count
+  patterns are anchored accordingly.
 - `pg_column_size()` on a compressed column returns the stored (toasted) size
   of the batch datum, which is what "bytes per column after compression" means
   here.

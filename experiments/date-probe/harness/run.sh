@@ -189,8 +189,8 @@ step "storage"
 "${PSQL[@]}" -v run_id="${RUN_ID}" -f "${SQL_DIR}/storage.sql"
 
 step "results"
-"${PSQL[@]}" -v run_id="${RUN_ID}" -v queries_csv="${QUERIES_CSV}" \
-  -v storage_csv="${STORAGE_CSV}" -f "${SQL_DIR}/export.sql"
+"${PSQL[@]}" -v run_id="${RUN_ID}" -f "${SQL_DIR}/export-queries.sql" >"${QUERIES_CSV}"
+"${PSQL[@]}" -v run_id="${RUN_ID}" -f "${SQL_DIR}/export-storage.sql" >"${STORAGE_CSV}"
 "${PGBIN}/psql" -X -q -A -t -p "${PGPORT}" -U "${PGUSER_OS}" -d "${DB}" \
   -v ON_ERROR_STOP=1 -v run_id="${RUN_ID}" -f "${SQL_DIR}/summary.sql" >"${SUMMARY_MD}"
 

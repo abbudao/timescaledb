@@ -210,9 +210,15 @@ END
 $pr$;
 
 -- Bytes per column in the compressed chunks, plus batch count and average
--- batch fill. The compressed chunk of a chunk is found through
--- _timescaledb_catalog.compression_chunk_size (2.31 no longer keeps
--- compressed_chunk_id on _timescaledb_catalog.chunk).
+-- batch fill.
+--
+-- Finding the compressed relation: 2.31 keeps compressed_chunk_id = 0 in
+-- _timescaledb_catalog.compression_chunk_size and does not register the
+-- compressed relation as a chunk, so the only link left is the naming
+-- convention from tsl/src/compression/create.c: "<chunk table>_compressed",
+-- in the chunk's own schema. The procedure fails loudly when a compressed
+-- chunk exists but no such relation is found, so a future rename shows up as
+-- an error instead of as empty columns.
 CREATE OR REPLACE PROCEDURE probe_collect_compressed(p_run_id text, p_tbl text)
 LANGUAGE plpgsql AS $pr$
 DECLARE
@@ -224,15 +230,26 @@ DECLARE
     totals     jsonb := '{}'::jsonb;
     v_batches  bigint := 0;
     v_meta_acc float8 := 0;
+    v_found    int := 0;
+    v_expected int;
 BEGIN
+    SELECT count(*) INTO v_expected
+    FROM _timescaledb_catalog.chunk ch
+    JOIN _timescaledb_catalog.hypertable h ON h.id = ch.hypertable_id
+    JOIN _timescaledb_catalog.compression_chunk_size ccs ON ccs.chunk_id = ch.id
+    WHERE format('%I.%I', h.schema_name, h.table_name)::regclass = p_tbl::regclass;
+
     FOR cc IN
-        SELECT comp.relid AS comp_relid
+        SELECT comp.oid::regclass AS comp_relid
         FROM _timescaledb_catalog.chunk ch
         JOIN _timescaledb_catalog.hypertable h ON h.id = ch.hypertable_id
         JOIN _timescaledb_catalog.compression_chunk_size ccs ON ccs.chunk_id = ch.id
-        JOIN _timescaledb_catalog.chunk comp ON comp.id = ccs.compressed_chunk_id
+        JOIN pg_class chc ON chc.oid = ch.relid
+        JOIN pg_class comp ON comp.relnamespace = chc.relnamespace
+                          AND comp.relname = chc.relname || '_compressed'
         WHERE format('%I.%I', h.schema_name, h.table_name)::regclass = p_tbl::regclass
     LOOP
+        v_found := v_found + 1;
         EXECUTE format('SELECT count(*)::bigint, COALESCE(sum(_ts_meta_count), 0)::float8 FROM %s',
                        cc.comp_relid)
         INTO nbatch, metasum;
@@ -252,6 +269,12 @@ BEGIN
         END LOOP;
     END LOOP;
 
+    IF v_expected > 0 AND v_found < v_expected THEN
+        RAISE EXCEPTION 'found % compressed relations for % but % chunks are compressed; '
+                        'the "<chunk>_compressed" naming convention no longer holds',
+                        v_found, p_tbl, v_expected;
+    END IF;
+
     FOR c IN SELECT key, value::text::bigint AS bytes FROM jsonb_each(totals) LOOP
         INSERT INTO probe_storage(run_id, tbl, colname, compressed_bytes)
         VALUES (p_run_id, p_tbl, c.key, c.bytes)
@@ -269,10 +292,27 @@ $pr$;
 -- ---------------------------------------------------------------------------
 -- Metric extraction: one row per stored plan.
 -- ---------------------------------------------------------------------------
+-- Every plan node, exactly once. jsonb_path_query('$.**') is not used for
+-- this: in lax mode recursive descent unwraps the "Plans" arrays as well as
+-- their elements, so every node comes back twice and any sum over nodes
+-- (rows scanned, chunks excluded during startup) silently doubles.
+CREATE OR REPLACE FUNCTION probe_plan_nodes(p jsonb)
+RETURNS SETOF jsonb LANGUAGE sql STABLE AS $fn$
+    WITH RECURSIVE walk AS (
+        SELECT elem -> 'Plan' AS node
+        FROM jsonb_array_elements(p) AS elem
+        UNION ALL
+        SELECT child
+        FROM walk, LATERAL jsonb_array_elements(walk.node -> 'Plans') AS child
+    )
+    SELECT node FROM walk;
+$fn$;
+
 -- chunks_in_plan counts DISTINCT chunk relations of the hypertable in the
 -- plan. With compression each scanned chunk contributes two scan nodes (the
--- chunk and its compressed twin), so the raw node count of the brief is kept
--- separately as chunk_scan_nodes.
+-- chunk and its compressed twin, named "<chunk>_compressed" in 2.31), so the
+-- pattern is anchored and the raw node count of the brief is kept separately
+-- as chunk_scan_nodes.
 CREATE OR REPLACE VIEW probe_query_metrics AS
 SELECT p.run_id,
        p.variant,
@@ -284,24 +324,25 @@ SELECT p.run_id,
        (p.plan -> 0 -> 'Plan' ->> 'Shared Hit Blocks')::bigint         AS shared_hit,
        (p.plan -> 0 -> 'Plan' ->> 'Shared Read Blocks')::bigint        AS shared_read,
        (p.plan -> 0 -> 'Plan' ->> 'Actual Rows')::float8               AS rows,
-       (SELECT count(DISTINCT rn #>> '{}')
-          FROM jsonb_path_query(p.plan, '$.**."Relation Name"') rn
-         WHERE rn #>> '{}' ~ '^_hyper_[0-9]+_[0-9]+_chunk')            AS chunks_in_plan,
-       (SELECT count(DISTINCT rn #>> '{}')
-          FROM jsonb_path_query(p.plan, '$.**."Relation Name"') rn
-         WHERE rn #>> '{}' ~ '^compress_hyper_')                       AS compressed_chunks_in_plan,
+       (SELECT count(DISTINCT n ->> 'Relation Name')
+          FROM probe_plan_nodes(p.plan) n
+         WHERE n ->> 'Relation Name' ~ '^_hyper_[0-9]+_[0-9]+_chunk$')  AS chunks_in_plan,
+       (SELECT count(DISTINCT n ->> 'Relation Name')
+          FROM probe_plan_nodes(p.plan) n
+         WHERE n ->> 'Relation Name' ~ '(^compress_hyper_|_chunk_compressed$)')
+                                                                        AS compressed_chunks_in_plan,
        (SELECT count(*)
-          FROM jsonb_path_query(p.plan, '$.**."Relation Name"') rn
-         WHERE rn #>> '{}' ~ '^(_hyper_|compress_hyper_)')             AS chunk_scan_nodes,
-       COALESCE((SELECT sum((v #>> '{}')::bigint)
-                   FROM jsonb_path_query(p.plan,
-                        '$.**."Chunks excluded during startup"') v), 0) AS chunks_excluded_startup,
-       EXISTS (SELECT 1 FROM jsonb_path_query(p.plan, '$.**."Vectorized Filter"') v)
-                                                                       AS vectorized_filter,
+          FROM probe_plan_nodes(p.plan) n
+         WHERE n ->> 'Relation Name' ~ '^(_hyper_|compress_hyper_)')     AS chunk_scan_nodes,
+       COALESCE((SELECT sum((n ->> 'Chunks excluded during startup')::bigint)
+                   FROM probe_plan_nodes(p.plan) n
+                  WHERE n ? 'Chunks excluded during startup'), 0)        AS chunks_excluded_startup,
+       EXISTS (SELECT 1 FROM probe_plan_nodes(p.plan) n
+                WHERE n ? 'Vectorized Filter')                           AS vectorized_filter,
        COALESCE((SELECT sum((n ->> 'Actual Rows')::float8)
-                   FROM jsonb_path_query(p.plan,
-                        '$.**?(@."Relation Name" like_regex "^_hyper_[0-9]+_[0-9]+_chunk")') n),
-                0)                                                     AS scan_rows,
+                   FROM probe_plan_nodes(p.plan) n
+                  WHERE n ->> 'Relation Name' ~ '^_hyper_[0-9]+_[0-9]+_chunk$'), 0)
+                                                                         AS scan_rows,
        p.query_text
 FROM probe_plans p;
 

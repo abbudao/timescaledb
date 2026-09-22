@@ -22,11 +22,16 @@ PGUSER_OS="${PGUSER_OS:-postgres}"
 
 log() { echo "[pg] $*"; }
 
+# fd 9 is the install lock held by experiments/date-probe/bin/locked.sh, which
+# normally wraps this script. The postmaster outlives that command, and a
+# daemon holding an inherited flock would keep the lock for every worktree on
+# the machine until the cluster is stopped, so fd 9 is closed for everything
+# started here.
 as_pg() {
   if [ "$(id -u)" -eq 0 ]; then
-    runuser -u "${PGUSER_OS}" -- "$@"
+    runuser -u "${PGUSER_OS}" -- "$@" 9>&-
   else
-    "$@"
+    "$@" 9>&-
   fi
 }
 

@@ -29,4 +29,7 @@ done
 echo "$(id -un)@$(hostname) pid=$$ cwd=$(pwd) $(date -u +%FT%TZ)" > "${LOCK_FILE}.owner"
 trap 'rm -f "${LOCK_FILE}.owner"' EXIT
 
-"$@"
+# Close the lock descriptor in the child. A daemon started by the command
+# (a harness postgres, for instance) would otherwise inherit it and keep the
+# lock held long after this script has exited.
+"$@" 9>&-

@@ -316,6 +316,16 @@ DEALLOCATE P8;
 :PREFIX SELECT * FROM metrics_date WHERE time_bucket('1d',time) < '2000-01-03' ORDER BY time;
 :PREFIX SELECT * FROM metrics_date WHERE time_bucket('1d',time) >= '2000-01-03' AND time_bucket('1d',time) <= '2000-01-10' ORDER BY time;
 
+\qecho clock-derived lower bounds on a DATE dimension are constified at plan time
+\qecho the data is from 2000, so every chunk is excluded at plan time and the plan is an empty Result
+:PREFIX SELECT * FROM metrics_date WHERE time >= now() - interval '30 days' ORDER BY time;
+:PREFIX SELECT * FROM metrics_date WHERE time >= current_date - 30 ORDER BY time;
+:PREFIX SELECT * FROM metrics_date WHERE time > (now() - interval '30 days')::date ORDER BY time;
+:PREFIX SELECT * FROM metrics_date WHERE time > CURRENT_TIMESTAMP ORDER BY time;
+\qecho upper bounds are not constified
+:PREFIX SELECT * FROM metrics_date WHERE time <= now() ORDER BY time;
+:PREFIX SELECT * FROM metrics_date WHERE time < current_date ORDER BY time;
+
 \qecho time_bucket exclusion with timestamp
 :PREFIX SELECT * FROM metrics_timestamp WHERE time_bucket('1d',time) < '2000-01-03' ORDER BY time;
 :PREFIX SELECT * FROM metrics_timestamp WHERE time_bucket('1d',time) >= '2000-01-03' AND time_bucket('1d',time) <= '2000-01-10' ORDER BY time;

@@ -41,8 +41,7 @@
  * - Var >= now() - Interval
  * - Var >= now() + Interval
  *
- * Interval needs to be Const in those expressions. CURRENT_TIMESTAMP
- * is accepted as a spelling of now().
+ * Interval needs to be Const in those expressions.
  *
  * On a DATE dimension the same shapes are accepted through the cross-type
  * DATE > TIMESTAMPTZ operators, plus the DATE-typed spellings of the
@@ -76,18 +75,40 @@ is_valid_now_func(Node *node)
 		return true;
 	}
 
-	/*
-	 * CURRENT_TIMESTAMP without a precision. CURRENT_TIMESTAMP(n) rounds the
-	 * clock value to n fractional digits and can therefore be up to half a unit
-	 * below now(), which would make a constant taken from now() too strict.
-	 */
 	if (IsA(node, SQLValueFunction) &&
-		castNode(SQLValueFunction, node)->op == SVFOP_CURRENT_TIMESTAMP)
+		castNode(SQLValueFunction, node)->type == SVFOP_CURRENT_TIMESTAMP)
 	{
 		return true;
 	}
 
 	return false;
+}
+
+/*
+ * now() or CURRENT_TIMESTAMP, the same instant spelled two ways.
+ *
+ * CURRENT_TIMESTAMP is parsed as a SQLValueFunction. is_valid_now_func()
+ * above means to accept it too but compares the node's result type instead
+ * of its op, so on TIMESTAMPTZ dimensions CURRENT_TIMESTAMP is never
+ * constified and the constify_now test documents the unconstified plans.
+ * DATE dimensions use this predicate instead and accept it; the TIMESTAMPTZ
+ * path is left as is so that its expected outputs stay valid.
+ *
+ * Only the spelling without a precision qualifies: CURRENT_TIMESTAMP(n)
+ * rounds the clock value to n fractional digits and can therefore be up to
+ * half a unit below now(), which would make a constant taken from now() too
+ * strict.
+ */
+static bool
+is_clock_func(Node *node)
+{
+	if (IsA(node, FuncExpr) && castNode(FuncExpr, node)->funcid == F_NOW)
+	{
+		return true;
+	}
+
+	return IsA(node, SQLValueFunction) &&
+		   castNode(SQLValueFunction, node)->op == SVFOP_CURRENT_TIMESTAMP;
 }
 
 static bool
@@ -98,12 +119,16 @@ is_current_date_func(Node *node)
 }
 
 /*
- * now() or now() +|- Const interval, a TIMESTAMPTZ expression.
+ * now() or now() +|- Const interval, a TIMESTAMPTZ expression. With
+ * accept_current_timestamp the CURRENT_TIMESTAMP spelling of now() is
+ * accepted as well.
  */
 static bool
-is_valid_now_or_offset_expr(Node *node)
+is_valid_now_or_offset_expr(Node *node, bool accept_current_timestamp)
 {
-	if (is_valid_now_func(node))
+	bool (*is_now)(Node *) = accept_current_timestamp ? is_clock_func : is_valid_now_func;
+
+	if (is_now(node))
 	{
 		return true;
 	}
@@ -116,7 +141,7 @@ is_valid_now_or_offset_expr(Node *node)
 	OpExpr *op_inner = castNode(OpExpr, node);
 	if ((op_inner->opfuncid != F_TIMESTAMPTZ_MI_INTERVAL &&
 		 op_inner->opfuncid != F_TIMESTAMPTZ_PL_INTERVAL) ||
-		!is_valid_now_func(linitial(op_inner->args)) || !IsA(lsecond(op_inner->args), Const))
+		!is_now(linitial(op_inner->args)) || !IsA(lsecond(op_inner->args), Const))
 	{
 		return false;
 	}
@@ -185,7 +210,7 @@ is_valid_now_cast_expr(Node *node)
 		return false;
 	}
 
-	return is_valid_now_or_offset_expr(linitial(cast->args));
+	return is_valid_now_or_offset_expr(linitial(cast->args), true);
 }
 
 static bool
@@ -295,14 +320,14 @@ is_valid_now_expr(OpExpr *op, List *rtable)
 			{
 				return false;
 			}
-			return is_valid_now_or_offset_expr(rhs);
+			return is_valid_now_or_offset_expr(rhs, false);
 		case DATEOID:
 			switch (op->opfuncid)
 			{
 				case F_DATE_GT_TIMESTAMPTZ:
 				case F_DATE_GE_TIMESTAMPTZ:
 					/* Var >|>= now() [+|- Const] */
-					return is_valid_now_or_offset_expr(rhs);
+					return is_valid_now_or_offset_expr(rhs, true);
 				case F_DATE_GT:
 				case F_DATE_GE:
 					/* Var >|>= CURRENT_DATE [+|- Const] or (now() [+|- Const])::date */
@@ -339,7 +364,7 @@ make_now_const()
 static Const *
 constify_now_value(PlannerInfo *root, Node *now_expr)
 {
-	if (is_valid_now_func(now_expr))
+	if (is_clock_func(now_expr))
 	{
 		return make_now_const();
 	}
@@ -352,7 +377,7 @@ constify_now_value(PlannerInfo *root, Node *now_expr)
 	 * Sanity check that this is a supported expression. We should never
 	 * end here if it isn't since this is checked in is_valid_now_expr.
 	 */
-	Assert(is_valid_now_func(linitial(op_inner->args)));
+	Assert(is_clock_func(linitial(op_inner->args)));
 	Const *now = make_now_const();
 	linitial(op_inner->args) = now;
 
@@ -502,10 +527,10 @@ clock_utc_date(Const *clock, DateADT *utc_date)
  *   and uses F - 1 with the integer offset applied.
  *
  * The price of not depending on the session timezone is that the bound can
- * be one day below the exact value (two for Var >= T when T is not a
- * midnight, since the exact bound is then the day after T), which keeps at
- * most one or two extra days of chunks in the plan. Those are still excluded
- * at executor startup by the original expression.
+ * be below the exact value: by one day in UTC (none for Var >= T when T is a
+ * midnight), by up to two days in timezones east of UTC, so at most two extra
+ * days of chunks stay in the plan. Those are still excluded at executor
+ * startup by the original expression.
  */
 static OpExpr *
 constify_date_expr(PlannerInfo *root, OpExpr *op)

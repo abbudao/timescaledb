@@ -1,0 +1,253 @@
+[locked] waiting for /tmp/ts-extension-install.lock held by: unknown
+[locked] waiting for /tmp/ts-extension-install.lock held by: unknown
+[locked] waiting for /tmp/ts-extension-install.lock held by: unknown
+[locked] waiting for /tmp/ts-extension-install.lock held by: unknown
+=== TIEBREAKER RUN ===
+--------------+----------------------+---------
+ metrics_tstz |                 0.76 |   80000
+(1 row)
+
+
+=== storage (00:36:25) ===
+     tbl      |  colname  |     coltype      | uncompressed_bytes | compressed_bytes | ratio | batches | avg_batch_rows 
+--------------+-----------+------------------+--------------------+------------------+-------+---------+----------------
+ metrics_date | day       | date             |            7680000 |                  |       |       0 |               
+ metrics_date | device_id | integer          |            7680000 |                  |       |       0 |               
+ metrics_date | region_id | integer          |            7680000 |                  |       |       0 |               
+ metrics_date | seq       | bigint           |           15360000 |                  |       |       0 |               
+ metrics_date | status    | text             |            8962446 |                  |       |       0 |               
+ metrics_date | v1        | double precision |           15360000 |                  |       |       0 |               
+ metrics_date | v2        | double precision |           15360000 |                  |       |       0 |               
+ metrics_date | v3        | integer          |            7680000 |                  |       |       0 |               
+ metrics_date | (columns) |                  |           85762446 |                  |       |         |               
+ metrics_date | (heap)    |                  |          159645696 |          6160384 | 25.91 |         |               
+ metrics_date | (index)   |                  |           14057472 |          1900544 |  7.40 |         |               
+ metrics_date | (toast)   |                  |             475136 |         46211072 |  0.01 |         |               
+ metrics_date | (total)   |                  |          174178304 |         54272000 |  3.21 |         |               
+(13 rows)
+
+
+=== results (00:36:25) ===
+psql:/home/user/timescaledb/.claude/worktrees/agent-ae51a0b346288402f/experiments/date-probe/harness/sql/export.sql:7: ERROR:  syntax error at or near ":"
+LINE 1: ...OIN probe_run r USING ( run_id ) WHERE m.run_id = : 'run_id'...
+                                                             ^
+=========== EXTRACT probe_t4_baseline ===========
+Pager usage is off.
+CREATE TABLE
+CREATE TABLE
+DO
+=== per column compressed bytes (metrics_date) ===
+        colname        |  bytes   
+-----------------------+----------
+ day                   |  1059400
+ device_id             |    46400
+ region_id             |   594120
+ seq                   |  2322376
+ status                |  1314600
+ v1                    | 13349512
+ v2                    | 14838912
+ v3                    |  2657896
+ _ts_meta_count        |    46400
+ _ts_meta_max_1        |    46400
+ _ts_meta_min_1        |    46400
+ _ts_meta_v2_first_day |    46400
+ _ts_meta_v2_last_day  |    46400
+(13 rows)
+
+=== totals ===
+ value_col_bytes | meta_col_bytes | all_col_bytes 
+-----------------+----------------+---------------
+        36183216 |         232000 |      36415216
+(1 row)
+
+=== batches ===
+ batches | avg_batch_rows 
+---------+----------------
+   11600 |          165.5
+(1 row)
+
+=== physical bytes ===
+  colname  | uncompressed_bytes | compressed_bytes 
+-----------+--------------------+------------------
+ (columns) |           85757124 |                 
+ (heap)    |          159621120 |          6160384
+ (index)   |           14057472 |           950272
+ (toast)   |             475136 |         47947776
+ (total)   |          174153728 |         55058432
+(5 rows)
+
+ hypertable_size_now | bytes_now 
+---------------------+-----------
+ 52 MB               |  54378496
+(1 row)
+
+=== timings ===
+    phase     | seconds 
+--------------+---------
+ cagg_refresh |    0.88
+ compress     |    2.18
+ load         |    4.34
+(3 rows)
+
+=== orderby actually used ===
+ segmentby | orderby  
+-----------+----------
+ device_id | day DESC
+(1 row)
+
+=== default orderby the installed function would return for metrics_date ===
+            get_orderby_defaults            
+--------------------------------------------
+ {"clauses": ["day DESC"], "confidence": 5}
+(1 row)
+
+=========== EXTRACT probe_t4_heuristic ===========
+Pager usage is off.
+CREATE TABLE
+CREATE TABLE
+DO
+=== per column compressed bytes (metrics_date) ===
+        colname        |  bytes   
+-----------------------+----------
+ day                   |  1059400
+ device_id             |    46400
+ region_id             |   594120
+ seq                   |  2200920
+ status                |  1314600
+ v1                    | 13281624
+ v2                    | 14837184
+ v3                    |  2658976
+ _ts_meta_count        |    46400
+ _ts_meta_max_1        |    46400
+ _ts_meta_max_2        |    92800
+ _ts_meta_min_1        |    46400
+ _ts_meta_min_2        |    92800
+ _ts_meta_v2_first_day |    46400
+ _ts_meta_v2_first_seq |    92800
+ _ts_meta_v2_last_day  |    46400
+ _ts_meta_v2_last_seq  |    92800
+(17 rows)
+
+=== totals ===
+ value_col_bytes | meta_col_bytes | all_col_bytes 
+-----------------+----------------+---------------
+        35993224 |         603200 |      36596424
+(1 row)
+
+=== batches ===
+ batches | avg_batch_rows 
+---------+----------------
+   11600 |          165.5
+(1 row)
+
+=== physical bytes ===
+  colname  | uncompressed_bytes | compressed_bytes 
+-----------+--------------------+------------------
+ (columns) |           85761169 |                 
+ (heap)    |          159637504 |          6160384
+ (index)   |           14057472 |          1900544
+ (toast)   |             475136 |         46080000
+ (total)   |          174170112 |         54140928
+(5 rows)
+
+ hypertable_size_now | bytes_now 
+---------------------+-----------
+ 51 MB               |  53927936
+(1 row)
+
+=== timings ===
+    phase     | seconds 
+--------------+---------
+ cagg_refresh |    0.78
+ compress     |    2.13
+ load         |    3.72
+(3 rows)
+
+=== orderby actually used ===
+ segmentby |      orderby      
+-----------+-------------------
+ device_id | day DESC,seq DESC
+(1 row)
+
+=== default orderby the installed function would return for metrics_date ===
+                                                                                                                    get_orderby_defaults                                                                                                                     
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ {"clauses": ["day DESC", "seq DESC"], "message": "Column \"seq\" was appended to the default order by as a tiebreaker for the date dimension \"day\". Please make sure it increases within a day, otherwise specify order_by explicitly.", "confidence": 4}
+(1 row)
+
+=========== EXTRACT probe_t4_tiebreaker ===========
+Pager usage is off.
+CREATE TABLE
+CREATE TABLE
+DO
+=== per column compressed bytes (metrics_date) ===
+        colname        |  bytes   
+-----------------------+----------
+ day                   |  1059400
+ device_id             |    46400
+ region_id             |   594120
+ seq                   |  2200920
+ status                |  1314600
+ v1                    | 13281088
+ v2                    | 14835736
+ v3                    |  2658648
+ _ts_meta_count        |    46400
+ _ts_meta_max_1        |    46400
+ _ts_meta_max_2        |    92800
+ _ts_meta_min_1        |    46400
+ _ts_meta_min_2        |    92800
+ _ts_meta_v2_first_day |    46400
+ _ts_meta_v2_first_seq |    92800
+ _ts_meta_v2_last_day  |    46400
+ _ts_meta_v2_last_seq  |    92800
+(17 rows)
+
+=== totals ===
+ value_col_bytes | meta_col_bytes | all_col_bytes 
+-----------------+----------------+---------------
+        35990912 |         603200 |      36594112
+(1 row)
+
+=== batches ===
+ batches | avg_batch_rows 
+---------+----------------
+   11600 |          165.5
+(1 row)
+
+=== physical bytes ===
+  colname  | uncompressed_bytes | compressed_bytes 
+-----------+--------------------+------------------
+ (columns) |           85762446 |                 
+ (heap)    |          159645696 |          6160384
+ (index)   |           14057472 |          1900544
+ (toast)   |             475136 |         46211072
+ (total)   |          174178304 |         54272000
+(5 rows)
+
+ hypertable_size_now | bytes_now 
+---------------------+-----------
+ 52 MB               |  54059008
+(1 row)
+
+=== timings ===
+    phase     | seconds 
+--------------+---------
+ cagg_refresh |    0.80
+ compress     |    2.14
+ load         |    3.79
+(3 rows)
+
+=== orderby actually used ===
+ segmentby |      orderby      
+-----------+-------------------
+ device_id | day DESC,seq DESC
+(1 row)
+
+=== default orderby the installed function would return for metrics_date ===
+                                                                                                                    get_orderby_defaults                                                                                                                     
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ {"clauses": ["day DESC", "seq DESC"], "message": "Column \"seq\" was appended to the default order by as a tiebreaker for the date dimension \"day\". Please make sure it increases within a day, otherwise specify order_by explicitly.", "confidence": 4}
+(1 row)
+
+[pg] stopping
+[pg] stopped

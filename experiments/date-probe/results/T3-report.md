@@ -243,7 +243,12 @@ Deviations from the brief:
    the main repository's tree; every test command since sets `TS_BUILD_DIR`
    to this worktree's `build/` explicitly. Worth a note in the README.
 
-Push: see the end of this file.
+Push: `git push -u origin probe/a2-constify-date` was attempted once after
+the final test run and refused with HTTP 403 ("Claude doesn't have GitHub
+access to abbudao/timescaledb for your organization"); not retried. The branch
+exists only in this worktree,
+`/home/user/timescaledb/.claude/worktrees/agent-a93175b355e14ee2f`, head
+`27adb4c` plus this amendment.
 
 Open questions for the orchestrator:
 

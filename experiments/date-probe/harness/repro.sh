@@ -42,6 +42,9 @@ SHA="$(git -C "${REPO}" rev-parse --short HEAD)"
 OUT="${RESULTS_DIR}/repro-${SHA}.txt"
 mkdir -p "${RESULTS_DIR}"
 
+# Restart, so the plans come from the build just installed under the lock and
+# not from whatever the postmaster preloaded when it was last started.
+"${HARNESS_DIR}/pg/stop.sh"
 "${HARNESS_DIR}/pg/start.sh"
 
 PSQL=("${PGBIN}/psql" -X -q -p "${PGPORT}" -U "${PGUSER_OS}" -d "${DB}" -v ON_ERROR_STOP=1)
@@ -73,7 +76,8 @@ EXPLAIN_OPTS='EXPLAIN (ANALYZE, BUFFERS, COSTS OFF, TIMING OFF, SUMMARY OFF)'
            d.column_name,
            d.column_type,
            d.time_interval,
-           (SELECT count(*) FROM show_chunks(format('%I', h.hypertable_name))) AS chunks,
+           (SELECT count(*) FROM show_chunks(
+                format('%I.%I', h.hypertable_schema, h.hypertable_name)::regclass)) AS chunks,
            (SELECT count(*) FROM timescaledb_information.chunks c
              WHERE c.hypertable_name = h.hypertable_name AND c.is_compressed) AS compressed_chunks
     FROM timescaledb_information.hypertables h

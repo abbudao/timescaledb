@@ -125,7 +125,13 @@ step() { echo; echo "=== $* ($(date -u +%H:%M:%S)) ==="; }
 
 T_START=$(date +%s)
 
-step "cluster"
+# The postmaster loads timescaledb through shared_preload_libraries and keeps
+# that copy in memory for its whole life, so a cluster left running from an
+# earlier session would serve whatever build was installed back then -- from
+# another worktree, possibly. Restart it, so the run measures the build that
+# was just installed inside the lock.
+step "cluster (restart, to pick up the freshly installed extension)"
+"${HARNESS_DIR}/pg/stop.sh"
 "${HARNESS_DIR}/pg/start.sh"
 
 step "database ${DB}"

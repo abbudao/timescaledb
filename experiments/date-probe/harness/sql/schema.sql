@@ -81,7 +81,8 @@ SELECT hypertable_name, column_name, column_type, time_interval
 FROM timescaledb_information.dimensions
 ORDER BY hypertable_name;
 
-SELECT hypertable_name, segmentby_column_name, orderby_column_name,
+SELECT hypertable_name, attname, segmentby_column_index, orderby_column_index,
        orderby_asc, orderby_nullsfirst
 FROM timescaledb_information.compression_settings
-ORDER BY hypertable_name, orderby_column_index NULLS FIRST;
+WHERE hypertable_name IN ('metrics_date', 'metrics_tstz')
+ORDER BY hypertable_name, segmentby_column_index NULLS LAST, orderby_column_index;

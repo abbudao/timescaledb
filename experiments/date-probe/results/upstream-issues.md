@@ -109,11 +109,33 @@ medians of three runs on the same machine on the same day. "serial" is
 | rows scanned | 144 000 | 144 000 |
 
 After the change the `DATE` table matches its `TIMESTAMPTZ` twin exactly
-(twin: 5.82 ms serial, 0.46 ms planning, 5 chunks, 6025 buffers). The effect
-grows as chunks get smaller, because the unconstified plan carries every
-chunk: with a 1-day chunk interval over the same data, planning goes from
-36.53 ms to 2.27 ms and serial execution from 61.30 ms to 13.52 ms (runs
-`defaults-1d-index-1dc07b9` and `int-after-1d-ac62b98`).
+(twin: 5.82 ms serial, 0.46 ms planning, 5 chunks, 6025 buffers).
+
+**The effect grows with the number of chunks**, because the unconstified plan
+carries every chunk in the hypertable. The same before/after at 52.56 M rows
+and 157 chunks (1095 days x 2000 devices x 24 rows/day; runs
+`int-baseline-customer` and `int-after-customer`):
+
+| metric, `day >= now() - interval '30 days'`, 157 chunks | before | after |
+|---|---:|---:|
+| execution, serial | 531.61 ms | **61.92 ms** (8.6x) |
+| execution, parallel allowed | 442.67 ms | **39.31 ms** (11.3x) |
+| planning | 12.76 ms | **0.58 ms** |
+| planning buffers | 1731 | **61** |
+| chunks in the plan | 157 of 157 | **5** |
+| vectorized filter | no | **yes** |
+
+The `TIMESTAMPTZ` twin needs 63.25 ms serial for the same query at that scale,
+so the 8.4x `DATE` penalty becomes 1.008x. No query in the set regressed:
+`Q3` 52.91 → 49.46 ms and `Q4` 258.15 → 235.42 ms serial, both *faster*,
+because the planner no longer carries 152 superfluous chunk relations.
+Storage is untouched to the third decimal (23.265 → 23.264 bytes per row), and
+so are load and compression throughput.
+
+The same holds as chunks get smaller: with a 1-day chunk interval over the
+small data set, planning goes from 36.53 ms to 2.27 ms and serial execution
+from 61.30 ms to 13.52 ms (runs `defaults-1d-index-1dc07b9` and
+`int-after-1d-ac62b98`).
 
 **Implementation challenges**
 

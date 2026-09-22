@@ -33,7 +33,7 @@ afterwards.
 | `int-after` | `probe/integration` | `--scale small --start-date 2025-08-19` | 35 s | `int-after-ac62b98-*` |
 | `int-after-1d` | `probe/integration` | `--scale small --start-date 2025-08-19 --chunk-interval '1 day'` | 49 s | `int-after-1d-ac62b98-*` |
 | `int-after-customer` | `probe/integration` | `--scale customer --start-date 2023-09-24` | 12 m 53 s | `int-after-customer-59db144-*` |
-| `int-baseline-customer` (addition) | base branch | `--scale customer --start-date 2023-09-24` | see below | `int-baseline-customer-59db144-*` |
+| `int-baseline-customer` (addition) | base branch | `--scale customer --start-date 2023-09-24` | 13 m 05 s | `int-baseline-customer-59db144-*` |
 | `int-after-guccheck` (addition) | `probe/integration` | `--scale small --start-date 2025-08-19` | 33 s | `int-after-guccheck-ac62b98-*` |
 
 The customer-scale run was **not** skipped: its two conditions were met - each
@@ -81,10 +81,10 @@ differ only by an unused index can disagree by 2.6x with parallelism on.
 | design | Q1 serial gain vs control | Q2 serial gain vs control | bytes per row effect | tests added and passing | expected outputs needing CI regeneration | effort (`git diff --stat` vs base) | go / no-go |
 |---|---|---|---|---|---|---|---|
 | **runtime transform, all operators** (T2, `probe/a1-runtime-transform`) | not separable in a T6 run; T2's own before/after: 21.10 → 20.52 ms parallel, **+2.7%** | T2's own: 14.95 → 16.73 ms, **-11.9%** (noise, shape unchanged) | none: 28.66 → 28.73 B/row over the pair, 0.27% run-to-run | `chunk_append_date_tstz` new (200 SQL / 580 expected lines, 90-cell matrix, 0 mismatches GUC on vs off vs ChunkAppend disabled, 0 cells without startup exclusion); `decompress_vector_qual` +23 SQL / +73-7 expected; `append-16` +1/-3 | `append-17.out`, `append-18.out`, `append-19.out` | engine 4 files, +389 / -19; with tests 10 files, +1263 / -33 | **go as PR 1 of Track A.** Alone it is +2.7% on Q1, below the fifth, and would be no-go under the rule read strictly - see "the rule applied", below |
-| **constify DATE bounds** (T3, `probe/a2-constify-date`) | 14.84 → **6.33 ms**, **+57.3%** (T3's own isolated before/after: 19.81 → 6.03 ms parallel, +69.6%) | 6.18 → **5.72 ms**, +7.4% (parallel 14.01 → 5.66 ms, +59.6%) | none: same 0.27% | `constify_date` new (331 SQL / 1086 expected lines, 28 shapes, 10-shape x 5-timezone matrix, generic plans re-executed after the clock advances and after `SET timezone`); `plan_expand_hypertable` +10 SQL / +66 expected | `plan_expand_hypertable-17.out`, `-18.out`, `-19.out` | engine 1 file, +462 / -95; with tests 6 files, +1956 / -95 | **go** |
+| **constify DATE bounds** (T3, `probe/a2-constify-date`) | 14.84 → **6.33 ms**, **+57.3%** at 58 chunks; **531.61 → 61.92 ms, +88.4%** at 157 (T3's own isolated before/after: 19.81 → 6.03 ms parallel, +69.6%) | 6.18 → **5.72 ms**, +7.4% (parallel 14.01 → 5.66 ms, +59.6%) | none: same 0.27% | `constify_date` new (331 SQL / 1086 expected lines, 28 shapes, 10-shape x 5-timezone matrix, generic plans re-executed after the clock advances and after `SET timezone`); `plan_expand_hypertable` +10 SQL / +66 expected | `plan_expand_hypertable-17.out`, `-18.out`, `-19.out` | engine 1 file, +462 / -95; with tests 6 files, +1956 / -95 | **go** |
 | **orderby tiebreaker** (T4, `probe/b1-orderby-tiebreaker`, not merged) | 0%: not measured to change any query; the design is compression-only | 0%, same | **worse**: value columns -189 992 B (-0.53%), metadata +371 200 B, **all compressed columns +181 208 B (+0.50%)**; physical total 55 058 432 → 54 140 928 B (-1.67%), against a 131 072 B (0.24%) run-to-run floor | `compression_defaults` +103 SQL / +175 expected, purely additive (0 lines of the existing output changed); sweep of 6 further tsl tests all pass | none (single version-independent expected file) | engine 1 file (`sql/compression_defaults.sql`), +124 / -1; with tests 3 files, +402 / -1 | **no-go as a default**; keep as an opt-in. Number that failed: 0% on Q1 and Q2, and +0.50% on compressed column bytes, where the rule needs +20% on Q1 or Q2 |
 | **chunking and index defaults** (T5, `probe/c1-defaults-measurement`) | n/a: a measurement task, no engine change; the intervals it compares are user choices | n/a | 1 day 66.56, 7 days 28.71, 30 days 19.79 B/row; the default index costs 6.9-10.2 B/row before compression and 45-50% of insert throughput | none (no engine or SQL change; harness additions only) | none | 0 files under `src/`, `tsl/`, `sql/`, `test/` | **no-go as an engine default change**; **go** for a create-time `NOTICE` plus documentation. Numbers that failed a default change: 7 → 30 days is 1.45x on bytes with a +33% Q3 regression (4.62 → 6.13 ms serial), against a 2x-with-no-regression bar; dropping the default index clears 2x on ingest but rests on one analytic query set |
-| **the two planner changes together** (what `int-after` measures) | 14.84 → **6.33 ms, +57.3%** | 6.18 → **5.72 ms, +7.4%** (parallel +59.6%) | none | all of the above, 8 of 8 in the brief's list pass | `append-17/18/19.out`, `plan_expand_hypertable-17/18/19.out` | engine 5 files, +851 / -114; with tests 15 files, +3219 / -128 | **go** |
+| **the two planner changes together** (what `int-after` measures) | small scale, 58 chunks: 14.84 → **6.33 ms, +57.3%**; **customer scale, 157 chunks: 531.61 → 61.92 ms, +88.4%** | 6.18 → **5.72 ms, +7.4%** small (parallel +59.6%); 65.85 → 60.04 ms, +8.8% customer (parallel +42.4%) | none, to the third decimal at customer scale: 23.265 → 23.264 B/row | all of the above, 8 of 8 in the brief's list pass | `append-17/18/19.out`, `plan_expand_hypertable-17/18/19.out` | engine 5 files, +851 / -114; with tests 15 files, +3219 / -128 | **go** |
 
 ### The go / no-go rule, applied uniformly
 
@@ -94,7 +94,8 @@ GUC on and off. **No-go** otherwise, with the number that failed.
 
 1. **At least a fifth on Q1 or Q2, serial, `metrics_date`, `int-after` vs
    `int-baseline`:** Q1 14.84 → 6.33 ms is **+57.3%**, which clears the bar on
-   its own. Q2 6.18 → 5.72 ms is +7.4% and does not, which is expected and not
+   its own, and at customer scale the same comparison is 531.61 → 61.92 ms,
+   **+88.4%**. Q2 6.18 → 5.72 ms is +7.4% and does not, which is expected and not
    a failure of the rule: Q2's bound is already the column's own type, so it
    was already excluded at startup before the change, and the rule needs
    either one. Q2's *parallel* number moves far more (14.01 → 5.66 ms, +59.6%)
@@ -106,7 +107,10 @@ GUC on and off. **No-go** otherwise, with the number that failed.
    inside the run-to-run noise of this harness and none is a regression. The
    parallel pass shows Q4 21.92 → 22.89 ms (+4.4%) and Q5 0.04 → 0.06 ms, both
    of which are worker-scheduling noise of the kind T5 documented; the serial
-   pass is the measurement.
+   pass is the measurement. At customer scale nothing regressed in either
+   pass: Q3 52.91 → 49.46 ms, Q4 258.15 → 235.42 ms and Q5 0.06 → 0.06 ms
+   serial, the first two *faster*, because the planner no longer carries 152
+   superfluous chunk relations through every plan.
 3. **Identical results with the GUC on and off:** checked directly on the
    harness data (`results/T6-guc-on-off.sql`, output in
    `int-after-guccheck-ac62b98-guc-on-off.txt`): seven DATE query shapes -
@@ -275,6 +279,8 @@ against 0.56 ms, 5 of 157 chunks in both plans, 61 planning buffers in both.
 On Q2 the DATE twin is now the *faster* one - 0.47 ms planning and 61
 planning buffers against 14.32 ms and 1733 - because `day >= current_date - 30`
 is constified while the twin's `date_trunc('day', now())` shape is not.
+Before the change the DATE twin needed **531.61 ms** for Q1 serial against the
+TIMESTAMPTZ twin's 63.25 ms, an 8.4x gap; the gap is now 1.008x.
 
 **Storage at scale, where the DATE advantage is larger than at small scale:**
 
@@ -290,10 +296,41 @@ At `small` the same difference is 28.73 against 30.37 B/row, i.e. -5.4%. The
 gap widens with scale because the whole-table figure is dominated by toast
 chunking, which rounds less coarsely over 157 chunks than over 58.
 
-A customer-scale **control** on the base branch was run as an addition (it is
-not in the brief's table), so that the scale row has a measured before/after
-rather than an inference; its numbers are in
-`int-baseline-customer-59db144-summary.md` and in the report.
+### `int-baseline-customer` - the same scale on the base branch
+
+Run as an addition, not in the brief's table, so that the scale row has a
+measured before/after instead of an inference. Same flags, same start date,
+same machine, 12 minutes after the patched run. `metrics_date`:
+
+| query | before, serial | after, serial | change | before, parallel | after, parallel | change |
+|---|---:|---:|---|---:|---:|---|
+| Q1 | 531.61 ms | **61.92 ms** | **-88.4%, 8.6x** | 442.67 ms | **39.31 ms** | -91.1%, 11.3x |
+| Q2 | 65.85 ms | 60.04 ms | -8.8% | 56.90 ms | 32.75 ms | -42.4% |
+| Q3 | 52.91 ms | 49.46 ms | -6.5% | 42.33 ms | 34.34 ms | -18.9% |
+| Q4 | 258.15 ms | 235.42 ms | -8.8% | 135.44 ms | 126.91 ms | -6.3% |
+| Q5 | 0.06 ms | 0.06 ms | 0% | 0.04 ms | 0.07 ms | +0.03 ms |
+
+| Q1 on `metrics_date`, customer scale | before | after |
+|---|---:|---:|
+| chunks in the plan | **157 of 157** | **5** |
+| planning | 12.76 ms | **0.58 ms** (-95.5%) |
+| planning buffers | **1731** | **61** (-96.5%) |
+| vectorized filter | no | **yes** |
+| buffers hit | 67 479 | 60 225 |
+| rows scanned | 1 440 000 | 1 440 000 |
+
+**The gap grows with the number of chunks, as the mechanism predicts:** the
+same change is +57.3% on Q1 serial over 58 chunks and **+88.4% over 157**,
+because the unconstified plan carries every chunk in the hypertable. Q2's
+planning falls from 11.23 ms and 1731 buffers to 0.47 ms and 61, and its 152
+startup exclusions become 0 plan-time exclusions. **No query regressed at this
+scale**, serial or parallel; Q3 and Q4 are 6-9% faster serial, which is the
+absence of 152 superfluous chunk relations in the planner's bookkeeping.
+
+Storage is untouched, to the third decimal: `metrics_date` 23.265 B/row before
+and 23.264 after, `metrics_tstz` 27.401 and 27.400, 314 000 batches and 167.4
+rows per batch in both. Load and compression are unchanged as well (409 355
+against 408 765 rows/s, 46.24 against 46.53 s).
 
 ## The three findings that were not designs
 

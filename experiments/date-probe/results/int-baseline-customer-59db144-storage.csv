@@ -1,0 +1,27 @@
+run_id,variant,git_sha,tbl,colname,coltype,uncompressed_bytes,compressed_bytes,uncompressed_bytes_per_row,compressed_bytes_per_row,ratio,batches,avg_meta_count
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_date,day,date,210240000,28825721,4.000,0.548,7.293,314000,167.38853503184714
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_date,device_id,integer,210240000,1256000,4.000,0.024,167.389,314000,167.38853503184714
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_date,region_id,integer,210240000,16078521,4.000,0.306,13.076,314000,167.38853503184714
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_date,seq,bigint,420480000,61478301,8.000,1.170,6.839,314000,167.38853503184714
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_date,status,text,245290928,35733721,4.667,0.680,6.864,314000,167.38853503184714
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_date,v1,double precision,420480000,344148580,8.000,6.548,1.222,314000,167.38853503184714
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_date,v2,double precision,420480000,405812028,8.000,7.721,1.036,314000,167.38853503184714
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_date,v3,integer,210240000,72640908,4.000,1.382,2.894,314000,167.38853503184714
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_date,(columns),,2347690928,965973780,44.667,18.378,2.430,,
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_date,(heap),,4313382912,91127808,82.066,1.734,47.333,,
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_date,(index),,343441408,12861440,6.534,0.245,26.703,,
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_date,(toast),,1286144,1118797824,0.024,21.286,0.001,,
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_date,(total),,4658110464,1222787072,88.625,23.265,3.809,,
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_tstz,device_id,integer,210240000,1256000,4.000,0.024,167.389,314000,167.38853503184714
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_tstz,region_id,integer,210240000,16076800,4.000,0.306,13.077,314000,167.38853503184714
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_tstz,seq,bigint,420480000,61475752,8.000,1.170,6.840,314000,167.38853503184714
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_tstz,status,text,245290928,35732000,4.667,0.680,6.865,314000,167.38853503184714
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_tstz,ts,timestamp with time zone,420480000,81368000,8.000,1.548,5.168,314000,167.38853503184714
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_tstz,v1,double precision,420480000,344141696,8.000,6.548,1.222,314000,167.38853503184714
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_tstz,v2,double precision,420480000,405805144,8.000,7.721,1.036,314000,167.38853503184714
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_tstz,v3,integer,210240000,72634024,4.000,1.382,2.895,314000,167.38853503184714
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_tstz,(columns),,2557930928,1018489416,48.667,19.378,2.511,,
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_tstz,(heap),,4313382912,87457792,82.066,1.664,49.320,,
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_tstz,(index),,343441408,15433728,6.534,0.294,22.253,,
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_tstz,(toast),,1286144,1337294848,0.024,25.443,0.001,,
+int-baseline-customer-59db144-20260922T120853Z,int-baseline-customer,59db144,metrics_tstz,(total),,4658110464,1440186368,88.625,27.401,3.234,,

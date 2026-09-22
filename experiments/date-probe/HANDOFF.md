@@ -37,11 +37,12 @@ Then run the SessionStart hook once if this is a fresh remote container
 and continue from the task table in `README.md`. Each task's latest report is
 `results/<task>-report.md` on its branch.
 
-## Paused
+## Pause history
 
-The probe was paused mid-wave-two at the user's request. The two running
-agents were stopped and their uncommitted work committed as `WIP:` commits
-on their branches by the orchestrator. To resume:
+The probe was paused mid-wave-two at the user's request and resumed the next
+day by resuming the same two agents from their transcripts. T5 has since
+finished. The notes below describe the state at the pause and remain the
+resume instructions for T3 should it be interrupted again:
 
 - **T3** on `probe/a2-constify-date`: the branch is T2's earlier head plus a
   `WIP` commit holding an unbuilt, untested edit to
@@ -71,5 +72,5 @@ Kept current by the orchestrator at every hand-off.
 | T2 | probe/a1-runtime-transform | done at ef03bde; all five operators rewritten exactly, 90-cell matrix and DST sweep zero mismatches, all five vectorized on compressed chunks; Q1 chunks in plan 116 to 10; append-17/18/19.out need CI regeneration; report in results/T2-report.md |
 | T3 | probe/a2-constify-date | not started, waits for T2 |
 | T4 | probe/b1-orderby-tiebreaker | done at a7ee096; tests pass; verdict no-go as default at small scale (value columns -0.53%, metadata +371 KB); re-measure at customer scale in T6; report in results/T4-report.md |
-| T5 | probe/c1-defaults-measurement | not started, waits for T1 |
+| T5 | probe/c1-defaults-measurement | done at 2b8f0b9; time index never used by Q1-Q5 and costs 45-50% insert throughput; batch fill = rows per device per day x days in chunk, capped at 1000; 30-day chunks cut planning 96% vs 1 day; recommendation: create-time NOTICE for DATE with chunk interval <= 1 day plus docs, not a default change; report in results/T5-report.md |
 | T6 | probe/integration | not started |

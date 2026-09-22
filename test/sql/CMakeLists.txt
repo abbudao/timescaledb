@@ -4,6 +4,7 @@ set(TEST_FILES
     alter.sql
     alternate_users.sql
     baserel_cache.sql
+    chunk_append_date_tstz.sql
     chunk_publication.sql
     chunk_utils.sql
     chunks.sql
@@ -107,6 +108,7 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
     alter_table_memory.sql
     bgw_launcher.sql
     c_unit_tests.sql
+    constify_date.sql
     copy_memory_usage.sql
     metadata.sql
     multi_transaction_index.sql

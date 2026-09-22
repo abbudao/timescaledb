@@ -1,0 +1,1 @@
+Implements: #2 Exclude chunks and vectorize filters for every DATE versus TIMESTAMPTZ comparison

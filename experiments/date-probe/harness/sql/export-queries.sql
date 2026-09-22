@@ -10,7 +10,7 @@ COPY (
            m.planning_ms, m.exec_ms, m.shared_hit, m.shared_read,
            m.chunks_in_plan, m.compressed_chunks_in_plan, m.chunk_scan_nodes,
            m.chunks_excluded_startup, m.vectorized_filter, m.rows, m.scan_rows,
-           m.query_text
+           m.workers_launched, m.query_text
     FROM probe_query_metrics m
     JOIN probe_run r USING (run_id)
     WHERE m.run_id = :'run_id'

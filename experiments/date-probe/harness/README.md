@@ -157,7 +157,8 @@ inside its `Plans` array and once unwrapped) and every sum over nodes doubles.
 | `chunks_excluded_startup` | sum of `Chunks excluded during startup` over the plan, 0 when absent |
 | `vectorized_filter` | any node carries a `Vectorized Filter` key |
 | `rows` | actual rows of the top node (1 for the aggregate queries) |
-| `scan_rows` | actual rows summed over the chunk scan nodes, i.e. how much data was really touched |
+| `scan_rows` | rows summed over the chunk scan nodes, i.e. how much data was really touched; `Actual Rows` is multiplied by `Actual Loops`, because EXPLAIN reports it per loop and the DATE twin often gets parallel workers |
+| `workers_launched` | parallel workers the plan actually launched |
 
 `chunks_in_plan` deviates from the brief's wording on purpose: with compression
 every scanned chunk contributes two scan nodes (the chunk and its compressed

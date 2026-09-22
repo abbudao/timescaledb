@@ -339,10 +339,17 @@ SELECT p.run_id,
                   WHERE n ? 'Chunks excluded during startup'), 0)        AS chunks_excluded_startup,
        EXISTS (SELECT 1 FROM probe_plan_nodes(p.plan) n
                 WHERE n ? 'Vectorized Filter')                           AS vectorized_filter,
-       COALESCE((SELECT sum((n ->> 'Actual Rows')::float8)
+       -- EXPLAIN reports Actual Rows per loop, and the DATE twin often needs
+       -- parallel workers to get through all its chunks, so the loop count
+       -- has to be multiplied back in or the total comes out short.
+       COALESCE((SELECT sum((n ->> 'Actual Rows')::float8
+                            * COALESCE((n ->> 'Actual Loops')::float8, 1))
                    FROM probe_plan_nodes(p.plan) n
                   WHERE n ->> 'Relation Name' ~ '^_hyper_[0-9]+_[0-9]+_chunk$'), 0)
                                                                          AS scan_rows,
+       COALESCE((SELECT max((n ->> 'Workers Launched')::int)
+                   FROM probe_plan_nodes(p.plan) n
+                  WHERE n ? 'Workers Launched'), 0)                      AS workers_launched,
        p.query_text
 FROM probe_plans p;
 
@@ -360,6 +367,7 @@ SELECT run_id, variant, tbl, query_id,
        bool_or(vectorized_filter)                                AS vectorized_filter,
        max(rows)                                                 AS rows,
        max(scan_rows)                                            AS scan_rows,
+       max(workers_launched)                                     AS workers_launched,
        percentile_cont(0.5) WITHIN GROUP (ORDER BY shared_hit)   AS shared_hit_median,
        percentile_cont(0.5) WITHIN GROUP (ORDER BY shared_read)  AS shared_read_median,
        min(query_text)                                           AS query_text

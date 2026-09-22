@@ -22,13 +22,13 @@ FROM probe_run WHERE run_id = :'run_id';
 SELECT '';
 SELECT '## Queries, median of three runs';
 SELECT '';
-SELECT '| query | table | exec ms | plan ms | chunks in plan | excluded at startup | vectorized filter | top rows | rows scanned | shared hit | shared read |';
-SELECT '|---|---|---:|---:|---:|---:|---|---:|---:|---:|---:|';
-SELECT format('| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |',
+SELECT '| query | table | exec ms | plan ms | chunks in plan | excluded at startup | vectorized filter | top rows | rows scanned | workers | shared hit | shared read |';
+SELECT '|---|---|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|';
+SELECT format('| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |',
               query_id, tbl,
               round(exec_ms_median::numeric, 2), round(planning_ms_median::numeric, 2),
               chunks_in_plan, chunks_excluded_startup, vectorized_filter,
-              round(rows::numeric, 0), round(scan_rows::numeric, 0),
+              round(rows::numeric, 0), round(scan_rows::numeric, 0), workers_launched,
               round(shared_hit_median::numeric, 0), round(shared_read_median::numeric, 0))
 FROM probe_query_median WHERE run_id = :'run_id' ORDER BY query_id, tbl;
 

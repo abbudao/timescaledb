@@ -70,7 +70,7 @@ Kept current by the orchestrator at every hand-off.
 | T0 | base | done |
 | T1 | probe/harness | done at bf46778; baseline: Q1 5.3x slower on DATE (58 chunks planned vs 5, no vectorized filter); harness bugs fixed; report in results/T1-report.md |
 | T2 | probe/a1-runtime-transform | done at ef03bde; all five operators rewritten exactly, 90-cell matrix and DST sweep zero mismatches, all five vectorized on compressed chunks; Q1 chunks in plan 116 to 10; append-17/18/19.out need CI regeneration; report in results/T2-report.md |
-| T3 | probe/a2-constify-date | not started, waits for T2 |
+| T3 | probe/a2-constify-date | done at a216872; DATE lower bounds constified with a timezone-independent UTC-date bound; Q1 on DATE 19.8 to 6.0 ms, planning 5.0 to 0.5 ms, no Gather, equal to the TIMESTAMPTZ twin; plan_expand_hypertable-17/18/19.out need CI regeneration; upstream bug found: CURRENT_TIMESTAMP never constified (SQLValueFunction ->type vs ->op), diff saved in results; report in results/T3-report.md |
 | T4 | probe/b1-orderby-tiebreaker | done at a7ee096; tests pass; verdict no-go as default at small scale (value columns -0.53%, metadata +371 KB); re-measure at customer scale in T6; report in results/T4-report.md |
 | T5 | probe/c1-defaults-measurement | done at 2b8f0b9; time index never used by Q1-Q5 and costs 45-50% insert throughput; batch fill = rows per device per day x days in chunk, capped at 1000; 30-day chunks cut planning 96% vs 1 day; recommendation: create-time NOTICE for DATE with chunk interval <= 1 day plus docs, not a default change; report in results/T5-report.md |
 | T6 | probe/integration | not started |

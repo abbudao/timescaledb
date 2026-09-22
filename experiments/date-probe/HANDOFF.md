@@ -37,6 +37,29 @@ Then run the SessionStart hook once if this is a fresh remote container
 and continue from the task table in `README.md`. Each task's latest report is
 `results/<task>-report.md` on its branch.
 
+## Paused
+
+The probe was paused mid-wave-two at the user's request. The two running
+agents were stopped and their uncommitted work committed as `WIP:` commits
+on their branches by the orchestrator. To resume:
+
+- **T3** on `probe/a2-constify-date`: the branch is T2's earlier head plus a
+  `WIP` commit holding an unbuilt, untested edit to
+  `src/planner/constify_now.c`. First `git merge probe/a1-runtime-transform`
+  to pick up T2's final head (equality range form, `append-16.out`), then
+  continue from `briefs/T3-constify-date.md`; the WIP diff shows how far the
+  shape detection got. Everything in the brief still applies, including the
+  timezone-independent conservative bound.
+- **T5** on `probe/c1-defaults-measurement`: the harness gained a
+  parallel-off query pass and chunk-index usage sampling (commit `1dc07b9`),
+  and all six matrix cells ran; their raw CSVs and summaries are committed
+  under `results/defaults-*`. What is missing is the analysis:
+  `results/T5-defaults-<sha>.md` with the matrix table, the three answers
+  from the brief, the recommendation, and `results/T5-report.md`. No rerun
+  should be needed unless a CSV is incomplete.
+- **T6** has not started. Inputs are ready for T1, T2 and T4; T3 and T5
+  finish first.
+
 ## Task state
 
 Kept current by the orchestrator at every hand-off.

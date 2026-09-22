@@ -211,6 +211,20 @@ inherited the lock file descriptor from `locked.sh` and held the install lock
 while idle, blocking every other agent. My worktree carries that fix as an
 **uncommitted** working-tree change, as instructed.
 
+### Push
+
+`git push -u origin probe/b1-orderby-tiebreaker` was attempted once and refused:
+
+```
+remote: Claude doesn't have GitHub access to abbudao/timescaledb for your organization.
+fatal: unable to access 'https://github.com/abbudao/timescaledb/': The requested URL returned error: 403
+```
+
+Not retried and not worked around. The four commits
+(`a71c7ea`, `3b2aeb1`, `ad228b1`, `c17552e` plus this amendment) exist only in
+this worktree; the branch needs to be pushed by someone with access, or the
+container kept alive until it is.
+
 ### Open questions for the orchestrator
 
 1. The `small` scale gives batches of only ~168 rows (200 segmentby values x

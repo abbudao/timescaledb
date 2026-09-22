@@ -34,6 +34,12 @@ inside the 20 minute budget. Both scripts stop the cluster from an EXIT trap,
 so nothing is left running; `ps -C postgres` is empty and port 5433 free
 afterwards.
 
+Push: `git push -u origin probe/harness` was attempted once and **failed with
+403**: "Claude doesn't have GitHub access to abbudao/timescaledb for your
+organization ... an org admin can install the Claude GitHub App". Not retried
+and not worked around, as instructed. The seven commits of this task exist only
+in this worktree's `probe/harness`.
+
 ### Tests
 
 - `insert_single` (core suite): **pass**. No other suite was run: T1 changes no

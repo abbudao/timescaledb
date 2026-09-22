@@ -1,0 +1,27 @@
+### planning buffers (median of three runs), per query
++--------------+----------+-----------------+--------------+--------------+
+|     tbl      | query_id | plan_buf_median | plan_buf_min | plan_buf_max |
++--------------+----------+-----------------+--------------+--------------+
+| metrics_date | Q1       |             411 |          411 |         7928 |
+| metrics_date | Q1-np    |             411 |          411 |         7896 |
+| metrics_date | Q2       |             424 |          424 |          644 |
+| metrics_date | Q2-np    |             424 |          424 |          644 |
+| metrics_date | Q3       |             565 |          565 |         6606 |
+| metrics_date | Q3-np    |             565 |          565 |         6588 |
+| metrics_date | Q4       |             472 |          472 |         1564 |
+| metrics_date | Q4-np    |             472 |          472 |         1516 |
+| metrics_date | Q5       |              21 |           21 |          163 |
+| metrics_date | Q5-np    |              21 |           21 |          163 |
+| metrics_tstz | Q1       |             410 |          410 |         7484 |
+| metrics_tstz | Q1-np    |             410 |          410 |         7430 |
+| metrics_tstz | Q2       |            5210 |         5210 |        84160 |
+| metrics_tstz | Q2-np    |            5210 |         5210 |        83880 |
+| metrics_tstz | Q3       |             503 |          503 |          613 |
+| metrics_tstz | Q3-np    |             503 |          503 |          613 |
+| metrics_tstz | Q4       |             410 |          410 |          951 |
+| metrics_tstz | Q4-np    |             410 |          410 |          931 |
+| metrics_tstz | Q5       |              19 |           19 |          169 |
+| metrics_tstz | Q5-np    |              19 |           19 |          169 |
++--------------+----------+-----------------+--------------+--------------+
+(20 rows)
+

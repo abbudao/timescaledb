@@ -1,0 +1,27 @@
+run_id,variant,git_sha,tbl,colname,coltype,uncompressed_bytes,compressed_bytes,uncompressed_bytes_per_row,compressed_bytes_per_row,ratio,batches,avg_meta_count
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_date,day,date,7680000,4240000,4.000,2.208,1.811,80000,24
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_date,device_id,integer,7680000,320000,4.000,0.167,24.000,80000,24
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_date,region_id,integer,7680000,4112000,4.000,2.142,1.868,80000,24
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_date,seq,bigint,15360000,4239992,8.000,2.208,3.623,80000,24
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_date,status,text,8957957,5999939,4.666,3.125,1.493,80000,24
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_date,v1,double precision,15360000,20251784,8.000,10.548,0.758,80000,24
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_date,v2,double precision,15360000,22167256,8.000,11.545,0.693,80000,24
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_date,v3,integer,7680000,5327256,4.000,2.775,1.442,80000,24
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_date,(columns),,85757957,66658227,44.666,34.718,1.287,,
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_date,(heap),,172589056,117964800,89.890,61.440,1.463,,
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_date,(index),,19660800,6553600,10.240,3.413,3.000,,
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_date,(toast),,3276800,3276800,1.707,1.707,1.000,,
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_date,(total),,195526656,127795200,101.837,66.560,1.530,,
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_tstz,device_id,integer,7680000,320000,4.000,0.167,24.000,80000,24
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_tstz,region_id,integer,7680000,4112000,4.000,2.142,1.868,80000,24
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_tstz,seq,bigint,15360000,4239992,8.000,2.208,3.623,80000,24
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_tstz,status,text,8957957,5999939,4.666,3.125,1.493,80000,24
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_tstz,ts,timestamp with time zone,15360000,4880000,8.000,2.542,3.148,80000,24
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_tstz,v1,double precision,15360000,20251784,8.000,10.548,0.758,80000,24
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_tstz,v2,double precision,15360000,22167256,8.000,11.545,0.693,80000,24
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_tstz,v3,integer,7680000,5327256,4.000,2.775,1.442,80000,24
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_tstz,(columns),,93437957,67298227,48.666,35.051,1.388,,
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_tstz,(heap),,172589056,117964800,89.890,61.440,1.463,,
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_tstz,(index),,19660800,6553600,10.240,3.413,3.000,,
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_tstz,(toast),,3276800,3276800,1.707,1.707,1.000,,
+int-after-1d-ac62b98-20260922T115100Z,int-after-1d,ac62b98,metrics_tstz,(total),,195526656,127795200,101.837,66.560,1.530,,

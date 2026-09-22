@@ -206,6 +206,13 @@ This run answers T5's open question 4, "does T2/T3 change the interval
 answer?". The comparison is against T5's `defaults-1d-index-1dc07b9` cell,
 which is the same configuration on the unpatched engine.
 
+Both columns are the parallel pass's medians, so the planning figures are
+comparable; the serial pass's planning median at 1 day is 36.08 ms before and
+5.06 ms after (-86.0%), higher after only because the median of three lands on
+the run after the cold one - the three planning times are 11.82, 2.34 and
+5.06 ms, against 131.63, 36.08 and 36.01 ms before. Execution medians are
+stable to within 5% across the three runs everywhere in this scorecard.
+
 | metric, Q1 on `metrics_date`, 1-day chunks | before (T5 `defaults-1d-index`) | after (`int-after-1d`) | change |
 |---|---:|---:|---|
 | planning | 36.53 ms | **2.27 ms** | **-93.8%** |

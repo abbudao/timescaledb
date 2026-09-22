@@ -37,8 +37,12 @@ three. Two independent gaps cause it:
 
 1. `ts_transform_cross_datatype_comparison()`
    (`src/nodes/chunk_append/transform.c`) rewrites a `DATE` versus
-   `TIMESTAMPTZ` comparison into a `DATE` versus `DATE` one for `>` and `<=`
-   only. `>=`, `<` and `=` fall through unrewritten, so ChunkAppend's startup
+   `TIMESTAMPTZ` comparison into a `DATE` versus `DATE` one only for `d > T`
+   and `d <= T` (and their mirrored spellings `T < d` and `T >= d`), because
+   casting the `TIMESTAMPTZ` side down to `DATE` truncates to midnight and
+   only those two stay equivalent under truncation - the code says so in a
+   comment. `d >= T`, `d < T` and `d = T` fall through unrewritten, so
+   ChunkAppend's startup
    and runtime exclusion (`do_startup_exclusion`, `can_exclude_chunk`) and
    `find_vectorized_quals()` in the columnar scan planner see a cross-type
    expression they cannot use. `>=` is the operator nearly every "last N days"

@@ -16,7 +16,8 @@
 #   experiments/date-probe/bin/locked.sh bash -c \
 #     'make -C build install && experiments/date-probe/harness/repro.sh'
 #
-# Flags: --db NAME (default date_probe), --keep (leave the cluster running)
+# Flags: --db NAME (default date_probe), --port N (default 5433, or $PGPORT),
+# --keep (leave the cluster running; otherwise it is stopped on any exit)
 set -euo pipefail
 
 HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -26,12 +27,14 @@ RESULTS_DIR="${PROBE_DIR}/results"
 PGBIN="${PGBIN:-/usr/lib/postgresql/16/bin}"
 PGPORT="${PGPORT:-5433}"
 PGUSER_OS="${PGUSER_OS:-postgres}"
+export PGPORT PGBIN PGUSER_OS   # pg/start.sh and pg/stop.sh read these too
 DB=date_probe
 KEEP=false
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --db)   DB="$2"; shift 2 ;;
+    --port) PGPORT="$2"; export PGPORT; shift 2 ;;
     --keep) KEEP=true; shift ;;
     -h|--help) sed -n '2,25p' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "unknown flag: $1" >&2; exit 2 ;;
@@ -43,8 +46,17 @@ OUT="${RESULTS_DIR}/repro-${SHA}.txt"
 mkdir -p "${RESULTS_DIR}"
 
 # Restart, so the plans come from the build just installed under the lock and
-# not from whatever the postmaster preloaded when it was last started.
+# not from whatever the postmaster preloaded when it was last started. The
+# cluster goes down again on any exit, so a failure does not leave the port
+# occupied for the other worktrees.
+cleanup() {
+  local rc=$?
+  trap - EXIT INT TERM
+  [ "${KEEP}" = true ] || "${HARNESS_DIR}/pg/stop.sh" || true
+  exit "${rc}"
+}
 "${HARNESS_DIR}/pg/stop.sh"
+trap cleanup EXIT INT TERM
 "${HARNESS_DIR}/pg/start.sh"
 
 PSQL=("${PGBIN}/psql" -X -q -p "${PGPORT}" -U "${PGUSER_OS}" -d "${DB}" -v ON_ERROR_STOP=1)
@@ -137,8 +149,4 @@ EXPLAIN_OPTS='EXPLAIN (ANALYZE, BUFFERS, COSTS OFF, TIMING OFF, SUMMARY OFF)'
 } | tee "${OUT}"
 
 echo
-echo "saved to ${OUT}"
-
-if [ "${KEEP}" != true ]; then
-  "${HARNESS_DIR}/pg/stop.sh"
-fi
+echo "saved to ${OUT}"   # the EXIT trap stops the cluster

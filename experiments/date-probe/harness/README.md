@@ -57,7 +57,12 @@ telemetry off, `shared_buffers=2GB`, `work_mem=64MB`,
 `pg/stop.sh --destroy` also deletes the data directory; use it when a schema
 change makes the old database useless.
 
-All SQL runs as `psql -X -p 5433 -U postgres`.
+All SQL runs as `psql -X -p 5433 -U postgres`. The port is `--port N` on
+`run.sh` and `repro.sh`, or `PGPORT` in the environment for any of the scripts
+(`PGBIN` and `PGUSER_OS` likewise); both scripts export it, so the cluster
+scripts they call agree with them. `run.sh` and `repro.sh` stop the cluster
+from an EXIT trap, so a run that fails partway through still frees the port
+for the other worktrees.
 
 ## Schema
 
@@ -87,11 +92,11 @@ strings, `seq` a running counter in generation order.
 
 ## Scales
 
-| scale | days | devices | rows/device/day | rows | wall time on 4 cores |
+| scale | days | devices | rows/device/day | rows | measured wall time on 4 cores |
 |---|---|---|---|---|---|
-| `smoke` | 20 | 20 | 4 | 1.6 k | ~1 min, for checking the harness itself |
-| `small` (default) | 400 | 200 | 24 | 1.92 M | ~7 min |
-| `customer` (T6 only) | 1095 | 2000 | 24 | 52.6 M | hours, not run here |
+| `smoke` | 20 | 20 | 4 | 1.6 k | ~2 s, for checking the harness itself |
+| `small` (default) | 400 | 200 | 24 | 1.92 M | ~30 s (load 9 s, compress 4 s) |
+| `customer` (T6 only) | 1095 | 2000 | 24 | 52.6 M | not run here; ~30x the small load |
 
 The data always ends today (`--start-date` defaults to `today - days + 1`), so
 the `now()`-based queries select the most recent 30 days of real data. Pass
@@ -164,6 +169,16 @@ inside its `Plans` array and once unwrapped) and every sum over nodes doubles.
 every scanned chunk contributes two scan nodes (the chunk and its compressed
 twin), so counting nodes doubles the chunk count. The literal count is kept as
 `chunk_scan_nodes`.
+
+Neither `chunks_in_plan` nor `chunks_excluded_startup` is doubled: the first
+counts distinct chunk relations under an anchored pattern, the second sums the
+`Chunks excluded during startup` field over plan nodes visited once each. A
+parallel plan does not change either -- per-worker detail is not in the JSON
+unless VERBOSE is on, and the ChunkAppend reports the field once. What a
+parallel plan does change is `Actual Rows`, which is per loop; `scan_rows`
+multiplies it back by `Actual Loops`. Sanity check on the baseline: Q1 on
+`metrics_date` reports 58 chunks in the plan, which is exactly the number of
+chunks the table has, and Q2 reports 53 excluded of 58.
 
 ## Result files
 

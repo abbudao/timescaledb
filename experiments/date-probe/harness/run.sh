@@ -24,7 +24,12 @@
 #   --start-date DATE     first day of data (default: today - days + 1, so the
 #                         data reaches the present and now()-based queries hit)
 #   --db NAME             database name (default date_probe)
+#   --port N              cluster port (default 5433, or $PGPORT)
 #   --keep                leave the cluster running when done
+#
+# The cluster is stopped on every exit, including a failure partway through,
+# so a broken run never leaves the port occupied for the other worktrees.
+# --keep suppresses that.
 #
 # Variant presets: baseline, reorder, tiebreaker, interval-1d, interval-30d,
 # no-index. Explicit flags win over the preset.
@@ -44,6 +49,7 @@ SQL_DIR="${HARNESS_DIR}/sql"
 PGBIN="${PGBIN:-/usr/lib/postgresql/16/bin}"
 PGPORT="${PGPORT:-5433}"
 PGUSER_OS="${PGUSER_OS:-postgres}"
+export PGPORT PGBIN PGUSER_OS   # pg/start.sh and pg/stop.sh read these too
 
 VARIANT=baseline
 SCALE=small
@@ -66,6 +72,7 @@ while [ $# -gt 0 ]; do
     --orderby)        ORDERBY="$2"; shift 2 ;;
     --start-date)     START_DATE="$2"; shift 2 ;;
     --db)             DB="$2"; shift 2 ;;
+    --port)           PGPORT="$2"; export PGPORT; shift 2 ;;
     --keep)           KEEP=true; shift ;;
     -h|--help)        sed -n '2,40p' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "unknown flag: $1" >&2; exit 2 ;;
@@ -124,6 +131,21 @@ PSQL=("${PGBIN}/psql" -X -q -p "${PGPORT}" -U "${PGUSER_OS}" -v ON_ERROR_STOP=1)
 step() { echo; echo "=== $* ($(date -u +%H:%M:%S)) ==="; }
 
 T_START=$(date +%s)
+
+# Whatever happens from here on -- a failing SQL step under set -e, an
+# interrupt -- the cluster goes down again, so a half-finished run never holds
+# port ${PGPORT} against the other worktrees.
+cleanup() {
+  local rc=$?
+  trap - EXIT INT TERM
+  if [ "${KEEP}" = true ]; then
+    echo "cluster left running on port ${PGPORT} (database ${DB})"
+  else
+    "${HARNESS_DIR}/pg/stop.sh" || true
+  fi
+  exit "${rc}"
+}
+trap cleanup EXIT INT TERM
 
 # The postmaster loads timescaledb through shared_preload_libraries and keeps
 # that copy in memory for its whole life, so a cluster left running from an
@@ -198,12 +220,7 @@ echo "  ${QUERIES_CSV}"
 echo "  ${STORAGE_CSV}"
 echo "  ${SUMMARY_MD}"
 
-if [ "${KEEP}" = true ]; then
-  echo "cluster left running on port ${PGPORT} (database ${DB})"
-else
-  step "cluster down"
-  "${HARNESS_DIR}/pg/stop.sh"
-fi
+step "cluster down"   # the EXIT trap does it
 
 echo
 echo "run ${RUN_ID} finished in $(( $(date +%s) - T_START ))s"

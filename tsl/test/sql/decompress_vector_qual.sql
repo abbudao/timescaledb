@@ -412,13 +412,30 @@ select * from date_table where ts <= '2021-01-02';
 select * from date_table where ts <  '2021-01-02';
 select * from date_table where ts <  CURRENT_DATE;
 
--- A date column vs a timestamptz constant is only vectorized for '>' and '<='.
+-- A date column vs a timestamptz constant is rewritten into a date vs date
+-- comparison against a bound derived from the constant with PostgreSQL's own
+-- cast functions, so all inequality operators are vectorized. '>' and '<='
+-- round the bound down to the date, '>=' and '<' round it up unless it is a
+-- local midnight.
 select * from date_table where ts >  '2021-01-02 12:00:00+00'::timestamptz;
 select * from date_table where ts <= '2021-01-02 12:00:00+00'::timestamptz;
-set timescaledb.debug_require_vector_qual to 'forbid';
-select * from date_table where ts =  '2021-01-02 12:00:00+00'::timestamptz;
 select * from date_table where ts <  '2021-01-02 12:00:00+00'::timestamptz;
 select * from date_table where ts >= '2021-01-02 12:00:00+00'::timestamptz;
+select * from date_table where ts <  '2021-01-02 00:00:00'::timestamptz /* local midnight */;
+select * from date_table where ts >= '2021-01-02 00:00:00'::timestamptz;
+select * from date_table where '2021-01-02 12:00:00+00'::timestamptz <  ts /* mirrored */;
+select * from date_table where '2021-01-02 12:00:00+00'::timestamptz >= ts;
+select * from date_table where '2021-01-02 12:00:00+00'::timestamptz >  ts;
+select * from date_table where '2021-01-02 12:00:00+00'::timestamptz <= ts;
+explain (costs off) select * from date_table where ts >= '2021-01-02 12:00:00+00'::timestamptz;
+-- Equality is rewritten into "ts = T::date AND T::date::timestamptz = T". The
+-- second conjunct has no Var, so the vectorized qual path cannot take it and
+-- the original cross-type comparison is executed instead.
+set timescaledb.debug_require_vector_qual to 'forbid';
+select * from date_table where ts =  '2021-01-02 12:00:00+00'::timestamptz;
+select * from date_table where ts =  '2021-01-02 00:00:00'::timestamptz /* local midnight */;
+select * from date_table where '2021-01-02 00:00:00'::timestamptz = ts;
+explain (costs off) select * from date_table where ts = '2021-01-02 00:00:00'::timestamptz;
 set timescaledb.debug_require_vector_qual to 'require';
 
 -- Text columns.

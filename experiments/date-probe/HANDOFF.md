@@ -45,7 +45,7 @@ Kept current by the orchestrator at every hand-off.
 |---|---|---|
 | T0 | base | done |
 | T1 | probe/harness | done at bf46778; baseline: Q1 5.3x slower on DATE (58 chunks planned vs 5, no vectorized filter); harness bugs fixed; report in results/T1-report.md |
-| T2 | probe/a1-runtime-transform | in progress, agent running |
+| T2 | probe/a1-runtime-transform | done at ef03bde; all five operators rewritten exactly, 90-cell matrix and DST sweep zero mismatches, all five vectorized on compressed chunks; Q1 chunks in plan 116 to 10; append-17/18/19.out need CI regeneration; report in results/T2-report.md |
 | T3 | probe/a2-constify-date | not started, waits for T2 |
 | T4 | probe/b1-orderby-tiebreaker | done at a7ee096; tests pass; verdict no-go as default at small scale (value columns -0.53%, metadata +371 KB); re-measure at customer scale in T6; report in results/T4-report.md |
 | T5 | probe/c1-defaults-measurement | not started, waits for T1 |

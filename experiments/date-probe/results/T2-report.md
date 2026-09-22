@@ -1,8 +1,11 @@
-## Report: T2 on probe/a1-runtime-transform @ 5baede3
+## Report: T2 on probe/a1-runtime-transform @ f657df8
 
 Commits on top of the base `72c3c27`: `27cdd38` (helper, transform, test
 sources), `7c8a54d` (expected outputs), `5baede3` (version-independent
-InitPlan section, harness results), plus this report.
+InitPlan section, harness results), `ed223fb` (first report), `f657df8`
+(follow-up: range form for `=`, `append-16.out`), plus this report update.
+`src/planner/date_bounds.h` is identical in `5baede3` and `f657df8`, so T3
+can branch from either.
 
 ### Background verified before writing code
 
@@ -64,20 +67,29 @@ ceil(T)  = CASE WHEN timestamptz(date(T)) = T THEN date(T) ELSE date_pli(date(T)
 | `d <= T` | `d <= floor(T)` (same nodes as before) | yes |
 | `d >= T` | `d >= ceil(T)` | yes |
 | `d < T`  | `d < ceil(T)` | yes |
-| `d = T`  | `d = floor(T) AND timestamptz(floor(T)) = T` | yes |
+| `d = T`  | `d >= ceil(T) AND d <= floor(T)` | yes |
 
 Mirrored `T OP d` keeps the argument order and commutes the strategy.
 `ts_make_date_bound_expr(tstz_expr, strategy, &exact)` returns floor for
-`>`/`<=`, ceil for `>=`/`<`, and floor with `*exact = false` for `=`;
-`ts_make_date_floor_expr`, `ts_make_date_ceil_expr` and
-`ts_make_date_is_midnight_expr` are exported separately for T3.
+`>`/`<=`, ceil for `>=`/`<`, and floor with `*exact = false` for `=` (no single
+bound expresses equality); `ts_make_date_floor_expr`, `ts_make_date_ceil_expr`
+and `ts_make_date_is_midnight_expr` are exported separately for T3. The header
+`date_bounds.h` is unchanged since `5baede3`.
 
-**Exact expression chosen for `=`:** `d = T::date AND (T::date)::timestamptz = T`,
-the brief's exact form, because consumer 4 above executes the rewritten clause,
-so the necessary-only `d = T::date` is not acceptable. A value that is not a
-local midnight folds to constant FALSE at startup, which `can_exclude_chunk`
-turns into "all chunks excluded" (10 of 10 in the test); a midnight value folds
-to `d = '2020-03-08'::date` and excludes all but one chunk.
+**Exact expression chosen for `=`:** the range form
+`d >= ceil(T) AND d <= floor(T)` (coordinator's follow-up; the first version
+used the brief's `d = T::date AND (T::date)::timestamptz = T`). Consumer 4
+above executes the rewritten clause, so the necessary-only `d = T::date` is
+not acceptable; the range is exactly equivalent because `d = T` holds iff
+`local_midnight(d) = T` iff `local_midnight(d) >= T AND local_midnight(d) <= T`,
+and the two inequalities are the already-exact `>=` and `<=` rewrites. When
+`T` is a local midnight the range is `[floor(T), floor(T)]` and startup
+exclusion keeps one chunk (9 of 10 excluded); otherwise it is
+`[floor(T)+1, floor(T)]`, empty, and `predicate_refuted_by` refutes every chunk
+with one conjunct or the other (10 of 10 excluded). Unlike the midnight-check
+form, both conjuncts are `Var op runtime-constant`, so `=` is vectorized on
+compressed chunks as well. Mirrored `T = d` becomes
+`ceil(T) <= d AND floor(T) >= d`.
 
 DST correctness was checked outside TimescaleDB first (scratch PostgreSQL 16,
 no extension): a PL/pgSQL sweep over UTC, Asia/Tokyo, America/Los_Angeles,
@@ -86,19 +98,22 @@ America/New_York (both transitions), Europe/London (both), America/Santiago
 Asia/Beirut, America/Havana and Pacific/Apia (skipped day), with instants every
 15 minutes across the transition days plus microsecond neighbours of midnight
 and 01:00, and every date within +-4 days, comparing PostgreSQL's `d OP T`
-against the rewritten forms for all five operators: 0 mismatches (the range
-form `d >= ceil(T) AND d <= floor(T)` for `=` was included and also had 0).
+against the rewritten forms for all five operators, for both equality forms
+(`d = floor(T) AND midnight(T)` and the range `d >= ceil(T) AND d <= floor(T)`):
+0 mismatches, rerun after the switch to the range form with the same result.
 
-**Vectorized Filter on compressed chunks:** yes for `>`, `<=`, `>=`, `<`
+**Vectorized Filter on compressed chunks:** yes for all five operators
 (literal and `now()`-derived bounds alike), because `vector_qual_make` accepts
 any Var-free, non-volatile right-hand side as a runtime constant, so the CASE
-bound qualifies; `decompress_vector_qual` shows
+bound qualifies, and it vectorizes an AND whose conjuncts all vectorize;
+`decompress_vector_qual` shows
 `Vectorized Filter: (ts >= CASE WHEN (timestamptz(date('...')) = '...') THEN date('...') ELSE date_pli(date('...'), 1) END)`
-and the harness reports `vectorized_filter = t` for Q1 on `metrics_date`. The
-gap the brief expected does not exist for the inequalities. `=` is **not**
-vectorized: its second conjunct has no Var, `vector_qual_make` rejects that
-argument and therefore the whole AND, and the original cross-type `Filter:`
-runs row by row (still correct, just not vectorized).
+for `>=` and the two-conjunct range for `=`, and the harness reports
+`vectorized_filter = t` for Q1 on `metrics_date`. The gap the brief expected
+("the constant is folded only at startup, so the planner still sees a
+cross-type expression") does not exist: the planner-side transform already
+produces a same-type comparison against a runtime constant, which is all the
+vectorized qual needs.
 
 Commands run:
 
@@ -116,6 +131,11 @@ git merge --no-commit --no-ff probe/harness   # b1593f7, aborted afterwards
 PGPORT=5434 experiments/date-probe/bin/locked.sh bash -c 'make -C build install && experiments/date-probe/harness/run.sh --variant t2-after --scale small'
 PGPORT=5434 experiments/date-probe/bin/locked.sh bash -c 'make -C <72c3c27 build> install && experiments/date-probe/harness/run.sh --variant t2-before --scale small && make -C build install'
 git merge --abort
+# follow-up (range form for "=", append-16.out, rerun):
+clang-format -i src/nodes/chunk_append/transform.c src/planner/date_bounds.c src/planner/date_bounds.h && make -C build -j2   # 0 warnings
+patch test/expected/append-16.out experiments/date-probe/results/T2-append-16.diff
+psql -f verify_pg.sql   # DST sweep on the scratch PostgreSQL, 0 mismatches
+LANG=C.UTF-8 LC_ALL=C.UTF-8 experiments/date-probe/bin/locked.sh bash -c 'make -C build install && experiments/date-probe/bin/regress.sh chunk_append_date_tstz append plan_expand_hypertable; SUITE=tsl experiments/date-probe/bin/regress.sh decompress_vector_qual; SUITE=shared experiments/date-probe/bin/regress.sh constify_now constify_timestamptz_op_interval'   # twice: regenerate decompress_vector_qual.out, then confirm
 ```
 
 Tests:
@@ -133,12 +153,16 @@ Tests:
   same count.
 - `plan_expand_hypertable-16` pass, `constify_now-16` pass,
   `constify_timestamptz_op_interval-16` pass, `insert_single` pass.
-- `decompress_vector_qual` pass with `LANG=C.UTF-8`. With `LANG` unset (this
+- `decompress_vector_qual` pass with `LANG=C.UTF-8`; all DATE-versus-TIMESTAMPTZ
+  cases, including the three `=` cases (noon, local midnight, mirrored), run
+  under `timescaledb.debug_require_vector_qual = 'require'`. With `LANG` unset (this
   container's default) pg_regress initialises the temp instance as `SQL_ASCII`
   and the pre-existing `text_table` section of that test fails
   (`sum(length(a))` 134551 bytes instead of 118551 characters, then the
   non-ASCII `LIKE` patterns error); unrelated to this change and not touched.
-- `append-16` **fail**, 3-line diff, saved as `results/T2-append-16.diff`:
+- `append-16` pass after applying the 3-line change kept in
+  `results/T2-append-16.diff` to `test/expected/append-16.out` (allowed by the
+  coordinator's follow-up):
   ```
   -   Chunks excluded during startup: 2
   +   Chunks excluded during startup: 3
@@ -150,16 +174,20 @@ Tests:
   annotated in the test as "should all have 2 chunks": the `::date` and
   `::timestamp` variants already excluded 3 chunks, and the `::timestamptz`
   variant now does too because `<` is rewritten (`ceil` of a local midnight is
-  that date). Rows unchanged (1440). This is the intended effect, not a
-  regression, but `test/expected/append-16.out` is outside the paths this brief
-  allows, so it was not edited.
+  that date). Rows unchanged (1440). No other line of `append-16.out` changed,
+  so the `>` and `<=` paths are byte-identical to before.
+- The switch of `=` to the range form changed no line of
+  `chunk_append_date_tstz.out`: the matrix, the exclusion counts (9 of 10 at
+  midnight, 10 of 10 otherwise) and every EXPLAIN are identical to the
+  midnight-check form.
 
 Expected outputs touched: `test/expected/chunk_append_date_tstz.out` (new,
 generated on PostgreSQL 16, version-independent by construction: no InitPlan
 headers, `BUFFERS OFF`, Seq Scans only), `tsl/test/expected/decompress_vector_qual.out`
-(DATE section only). Outputs needing CI regeneration: none for the files in this
-branch. Pending for whoever applies `results/T2-append-16.diff`:
-`test/expected/append-17.out`, `append-18.out`, `append-19.out` (same 3 lines).
+(DATE section only), `test/expected/append-16.out` (3 lines, see above).
+Outputs needing CI regeneration: `test/expected/append-17.out`,
+`test/expected/append-18.out`, `test/expected/append-19.out` (the same 3-line
+change as `append-16.out`; not touched here, PostgreSQL 16 only).
 
 Harness numbers: `harness/run.sh --scale small` (400 days x 200 devices x 24
 rows, 58 chunks of 7 days per twin, compressed, segmentby `device_id`), median
@@ -212,8 +240,9 @@ Deviations from the brief:
    `InitPlan 1 (returns $0)`. The brief's fallback was a `.sql.in` template; a
    single version-independent output avoids three expected files CI would have
    to regenerate.
-3. `test/expected/append-16.out` not updated (outside allowed paths); the
-   `append` test fails on this branch until the 3-line patch is applied.
+3. `test/expected/append-16.out` was outside the brief's allowed paths and
+   was updated only after the coordinator widened them; `append-17/18/19.out`
+   are left for CI.
 4. `experiments/date-probe/bin/locked.sh` carries the coordinator's `9>&-` fix
    in the worktree and is deliberately left out of every commit.
 5. Harness ran on `PGPORT=5434` because another worktree's harness cluster held
@@ -224,19 +253,18 @@ Deviations from the brief:
    the installed extension was `72c3c27`, built from `git archive 72c3c27` in
    the scratchpad.
 
-Push: `git push -u origin probe/a1-runtime-transform` was attempted once and
-refused with HTTP 403 ("Claude doesn't have GitHub access to
-abbudao/timescaledb for your organization"); not retried. The branch exists
-only in this worktree: `/home/user/timescaledb/.claude/worktrees/agent-a60925aa01f171cca`.
+Push: `git push -u origin probe/a1-runtime-transform` was attempted once after
+the first report and once after the follow-up; both refused with HTTP 403
+("Claude doesn't have GitHub access to abbudao/timescaledb for your
+organization"); not retried. The branch exists only in this worktree:
+`/home/user/timescaledb/.claude/worktrees/agent-a60925aa01f171cca`.
 
 Open questions for the orchestrator:
 
-1. `=` could be rewritten as `d >= ceil(T) AND d <= floor(T)` instead: equally
-   exact (0 mismatches in the sweep), identical exclusion, and both conjuncts are
-   `Var op runtime-constant`, so `=` would also get a Vectorized Filter. Only
-   `transform.c` would change. Worth switching, or keep the brief's form?
-2. Who applies `results/T2-append-16.diff` and triggers the `append-17/18/19`
-   regeneration: T6, or should T2's allowed paths be widened?
+1. (resolved by the follow-up) `=` now uses the range form; see above.
+2. (resolved by the follow-up) `append-16.out` is updated on this branch;
+   `append-17.out`, `append-18.out` and `append-19.out` still need CI
+   regeneration, see "Expected outputs touched".
 3. Harness (T1) bugs found while measuring: (a) `sql/export.sql` uses
    `:'run_id'` / `:'queries_csv'` inside `\copy`, and psql performs no variable
    interpolation in `\copy` arguments, so every run ends with

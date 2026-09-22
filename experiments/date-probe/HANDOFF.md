@@ -29,6 +29,11 @@ git am base/*.patch
 #   git am probe-<name>/*.patch
 # Series cut from the base list the base branch as parent; T3 lists
 # probe/a1-runtime-transform and T5 lists probe/harness.
+# probe/integration is a merge branch: recreate it, then apply its own series:
+#   git checkout -b probe/integration claude/hypertable-date-time-dimension-ms75bt
+#   git merge --no-edit probe/c1-defaults-measurement
+#   git merge --no-edit probe/a2-constify-date
+#   git am probe-integration/*.patch
 git checkout claude/hypertable-date-time-dimension-ms75bt
 ```
 
@@ -73,4 +78,4 @@ Kept current by the orchestrator at every hand-off.
 | T3 | probe/a2-constify-date | done at a216872; DATE lower bounds constified with a timezone-independent UTC-date bound; Q1 on DATE 19.8 to 6.0 ms, planning 5.0 to 0.5 ms, no Gather, equal to the TIMESTAMPTZ twin; plan_expand_hypertable-17/18/19.out need CI regeneration; upstream bug found: CURRENT_TIMESTAMP never constified (SQLValueFunction ->type vs ->op), diff saved in results; report in results/T3-report.md |
 | T4 | probe/b1-orderby-tiebreaker | done at a7ee096; tests pass; verdict no-go as default at small scale (value columns -0.53%, metadata +371 KB); re-measure at customer scale in T6; report in results/T4-report.md |
 | T5 | probe/c1-defaults-measurement | done at 2b8f0b9; time index never used by Q1-Q5 and costs 45-50% insert throughput; batch fill = rows per device per day x days in chunk, capped at 1000; 30-day chunks cut planning 96% vs 1 day; recommendation: create-time NOTICE for DATE with chunk interval <= 1 day plus docs, not a default change; report in results/T5-report.md |
-| T6 | probe/integration | not started |
+| T6 | probe/integration | done at fbd97ff; merges c1 and a2 into base, no conflicts, 8 tests pass; customer scale Q1 on DATE 532 to 62 ms serial, equal to the TIMESTAMPTZ twin; scorecard in results/T6-scorecard.md, issue drafts in results/upstream-issues.md, report in results/T6-report.md |

@@ -50,16 +50,27 @@ count_patches() { find "$1" -maxdepth 1 -name '*.patch' | wc -l; }
 git format-patch -q "${UPSTREAM}..${BASE_BRANCH}" -o "${OUT}/base" >/dev/null
 echo "| base | ${BASE_BRANCH} | ${UPSTREAM} | $(git rev-parse --short "${BASE_BRANCH}") | $(count_patches "${OUT}/base") |" >> "${OUT}/MANIFEST.md"
 
-# Parents before children: branches cut from the base first, then the rest.
-branches=$(git for-each-ref --format='%(refname:short)' 'refs/heads/probe/*')
+# Parents before children: branches cut from the base first, then the rest,
+# and the integration merge branch last since it is recreated from the others.
+branches=$(git for-each-ref --format='%(refname:short)' 'refs/heads/probe/*' | grep -v '^probe/integration$')
 ordered=""
 for br in ${branches}; do [ "$(parent_of "${br}")" = "${BASE_BRANCH}" ] && ordered="${ordered} ${br}"; done
 for br in ${branches}; do [ "$(parent_of "${br}")" = "${BASE_BRANCH}" ] || ordered="${ordered} ${br}"; done
+git show-ref --verify -q refs/heads/probe/integration && ordered="${ordered} probe/integration"
 
 for br in ${ordered}; do
   parent="$(parent_of "${br}")"
   dir="${OUT}/${br//\//-}"
   mkdir -p "${dir}"
+  if [ "${br}" = "probe/integration" ]; then
+    # A merge branch cannot be carried as patches of its whole history.
+    # Export only the commits after its last merge; the manifest says how to
+    # recreate the merges first.
+    last_merge="$(git rev-list --merges -n 1 "${br}")"
+    git format-patch -q "${last_merge}..${br}" -o "${dir}" >/dev/null
+    echo "| ${br//\//-} | ${br} | recreate: base, then merge probe/c1-defaults-measurement, then merge probe/a2-constify-date | $(git rev-parse --short "${br}") | $(count_patches "${dir}") |" >> "${OUT}/MANIFEST.md"
+    continue
+  fi
   git format-patch -q "${parent}..${br}" -o "${dir}" >/dev/null
   echo "| ${br//\//-} | ${br} | ${parent} | $(git rev-parse --short "${br}") | $(count_patches "${dir}") |" >> "${OUT}/MANIFEST.md"
 done

@@ -99,6 +99,24 @@ CREATE TABLE IF NOT EXISTS probe_storage (
     PRIMARY KEY (run_id, tbl, colname)
 );
 
+-- idx_scan on the chunk indexes, sampled before and after the query set, so a
+-- run can state whether Q1..Q5 used the chunk time index at all. One row per
+-- (table, phase, scope): "chunk" are the indexes on the uncompressed chunks
+-- (the default time index lives here), "compressed" the ones compression
+-- creates on the compressed relations.
+CREATE TABLE IF NOT EXISTS probe_idxstat (
+    run_id        text NOT NULL,
+    tbl           text NOT NULL,
+    phase         text NOT NULL,
+    scope         text NOT NULL,
+    indexes       bigint NOT NULL,
+    idx_scan      bigint NOT NULL,
+    idx_tup_read  bigint NOT NULL,
+    idx_tup_fetch bigint NOT NULL,
+    index_bytes   bigint NOT NULL,
+    PRIMARY KEY (run_id, tbl, phase, scope)
+);
+
 -- ---------------------------------------------------------------------------
 -- Helpers
 -- ---------------------------------------------------------------------------
@@ -286,6 +304,56 @@ BEGIN
        SET batches = v_batches,
            avg_meta_count = CASE WHEN v_batches > 0 THEN v_meta_acc / v_batches END
      WHERE run_id = p_run_id AND tbl = p_tbl;
+END
+$pr$;
+
+-- Index usage on the chunks of one hypertable at one point in time. Called
+-- before and after the query set; the difference says whether Q1..Q5 used a
+-- chunk index at all.
+--
+-- pg_stat_user_indexes is fed from shared memory. A backend flushes its
+-- pending counters when it exits, so the sample taken by this (separate)
+-- psql session already sees the query set's scans; pg_stat_force_next_flush()
+-- only makes this session's own contribution deterministic.
+CREATE OR REPLACE PROCEDURE probe_collect_idxstat(p_run_id text, p_tbl text, p_phase text)
+LANGUAGE plpgsql AS $pr$
+BEGIN
+    PERFORM pg_stat_force_next_flush();
+
+    INSERT INTO probe_idxstat(run_id, tbl, phase, scope, indexes, idx_scan,
+                              idx_tup_read, idx_tup_fetch, index_bytes)
+    SELECT p_run_id, p_tbl, p_phase, sc.scope,
+           count(i.indexrelid),
+           COALESCE(sum(st.idx_scan), 0),
+           COALESCE(sum(st.idx_tup_read), 0),
+           COALESCE(sum(st.idx_tup_fetch), 0),
+           COALESCE(sum(pg_relation_size(i.indexrelid)), 0)
+    FROM (VALUES ('chunk'), ('compressed')) AS sc(scope)
+    LEFT JOIN (
+        SELECT ch.relid AS relid, 'chunk'::text AS scope
+        FROM _timescaledb_catalog.chunk ch
+        JOIN _timescaledb_catalog.hypertable h ON h.id = ch.hypertable_id
+        WHERE format('%I.%I', h.schema_name, h.table_name)::regclass = p_tbl::regclass
+        UNION ALL
+        -- 2.31 does not register the compressed relation as a chunk; the link
+        -- is the "<chunk table>_compressed" naming convention, as in
+        -- probe_collect_compressed() above.
+        SELECT comp.oid, 'compressed'
+        FROM _timescaledb_catalog.chunk ch
+        JOIN _timescaledb_catalog.hypertable h ON h.id = ch.hypertable_id
+        JOIN pg_class chc ON chc.oid = ch.relid
+        JOIN pg_class comp ON comp.relnamespace = chc.relnamespace
+                          AND comp.relname = chc.relname || '_compressed'
+        WHERE format('%I.%I', h.schema_name, h.table_name)::regclass = p_tbl::regclass
+    ) r ON r.scope = sc.scope
+    LEFT JOIN pg_index i ON i.indrelid = r.relid
+    LEFT JOIN pg_stat_user_indexes st ON st.indexrelid = i.indexrelid
+    GROUP BY sc.scope
+    ON CONFLICT (run_id, tbl, phase, scope) DO UPDATE
+       SET indexes = excluded.indexes, idx_scan = excluded.idx_scan,
+           idx_tup_read = excluded.idx_tup_read,
+           idx_tup_fetch = excluded.idx_tup_fetch,
+           index_bytes = excluded.index_bytes;
 END
 $pr$;
 

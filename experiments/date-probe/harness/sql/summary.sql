@@ -33,6 +33,28 @@ SELECT format('| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |',
 FROM probe_query_median WHERE run_id = :'run_id' ORDER BY query_id, tbl;
 
 SELECT '';
+SELECT '## Chunk index usage over the query set';
+SELECT '';
+SELECT '`idx_scan` summed over the indexes of the chunks, sampled before and';
+SELECT 'after Q1..Q5. A zero delta on scope `chunk` means no query touched the';
+SELECT 'default time index.';
+SELECT '';
+SELECT '| table | scope | indexes | index bytes | idx_scan before | after Q1-Q5 | delta | after Q1-np..Q5-np | delta |';
+SELECT '|---|---|---:|---:|---:|---:|---:|---:|---:|';
+SELECT format('| %s | %s | %s | %s | %s | %s | %s | %s | %s |',
+              b.tbl, b.scope, b.indexes, b.index_bytes,
+              b.idx_scan, a.idx_scan, a.idx_scan - b.idx_scan,
+              COALESCE(np.idx_scan::text, ''),
+              COALESCE((np.idx_scan - a.idx_scan)::text, ''))
+FROM probe_idxstat b
+JOIN probe_idxstat a  ON a.run_id = b.run_id AND a.tbl = b.tbl AND a.scope = b.scope
+                     AND a.phase = 'after_queries'
+LEFT JOIN probe_idxstat np ON np.run_id = b.run_id AND np.tbl = b.tbl AND np.scope = b.scope
+                     AND np.phase = 'after_queries_np'
+WHERE b.run_id = :'run_id' AND b.phase = 'before_queries'
+ORDER BY b.tbl, b.scope;
+
+SELECT '';
 SELECT '## Load, compression and continuous aggregate';
 SELECT '';
 SELECT '| table | phase | seconds | rows | rows/sec |';

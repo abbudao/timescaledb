@@ -122,7 +122,16 @@ file prefix and a preset; explicit flags win over the preset.
 
 `--orderby` is written against `metrics_date`; the harness renames the word
 `day` to `ts` for the twin. Other flags: `--db NAME`, `--keep` (leave the
-cluster up), `--start-date`.
+cluster up), `--start-date`, `--parallel-off-pass`.
+
+`--parallel-off-pass` (or `PROBE_PARALLEL_OFF_PASS=true` in the environment,
+added for T5) runs Q1 to Q5 a second time per table with
+`max_parallel_workers_per_gather = 0`, storing them under the query ids
+`Q1-np` .. `Q5-np`. They appear in the CSV and the summary like any other
+query. The point is that the `DATE` twin gets parallel workers precisely
+because it scans every chunk (T1, open question 2): comparing `Qn` with
+`Qn-np` separates a gain that comes from chunk exclusion from one that is
+only free parallel workers, which a loaded server does not hand out.
 
 ## Query set
 
@@ -194,7 +203,20 @@ chunks the table has, and Q2 reports 53 excluded of 58.
   bytes are `sum(pg_column_size(col))` over the table before compression and
   over the compressed chunks after it, with `batches` and `avg_meta_count`
   (batch fill) per table.
-- `*-summary.md` — the same numbers as markdown tables.
+- `*-summary.md` — the same numbers as markdown tables, plus the chunk index
+  usage section described below.
+
+Index usage (added for T5): `sql/idxstat.sql` samples
+`pg_stat_user_indexes.idx_scan`, `idx_tup_read` and the index size, summed
+over the indexes of the chunks, into `probe_idxstat` — once before the query
+set, once after it, and once more after the `-np` pass when
+`--parallel-off-pass` is given. Scope `chunk` covers the indexes on the
+uncompressed chunks, which is where the default time index lives; scope
+`compressed` the indexes compression creates on the compressed relations. A
+zero delta on `chunk` means none of Q1 to Q5 used the time index. Each pass
+runs in its own psql session, so the pending counters are already flushed to
+shared memory when the next sample is taken. The summary prints before, after
+and delta per (table, scope).
 
 `repro.sh` writes `repro-<short sha>.txt`: Q1 on both twins under
 `EXPLAIN (ANALYZE, BUFFERS, COSTS OFF, TIMING OFF, SUMMARY OFF)`, plus the same

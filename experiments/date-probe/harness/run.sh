@@ -26,6 +26,12 @@
 #   --db NAME             database name (default date_probe)
 #   --port N              cluster port (default 5433, or $PGPORT)
 #   --keep                leave the cluster running when done
+#   --parallel-off-pass   run Q1..Q5 a second time per table with
+#                         max_parallel_workers_per_gather = 0, stored under the
+#                         query ids Q1-np..Q5-np, so a gain from chunk
+#                         exclusion can be told apart from one that is only
+#                         free parallel workers. Also settable as
+#                         PROBE_PARALLEL_OFF_PASS=true in the environment.
 #
 # The cluster is stopped on every exit, including a failure partway through,
 # so a broken run never leaves the port occupied for the other worktrees.
@@ -60,6 +66,7 @@ ORDERBY=
 START_DATE=
 DB=date_probe
 KEEP=false
+PARALLEL_OFF_PASS="${PROBE_PARALLEL_OFF_PASS:-false}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -74,7 +81,8 @@ while [ $# -gt 0 ]; do
     --db)             DB="$2"; shift 2 ;;
     --port)           PGPORT="$2"; export PGPORT; shift 2 ;;
     --keep)           KEEP=true; shift ;;
-    -h|--help)        sed -n '2,40p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    --parallel-off-pass) PARALLEL_OFF_PASS=true; shift ;;
+    -h|--help)        sed -n '2,46p' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "unknown flag: $1" >&2; exit 2 ;;
   esac
 done
@@ -185,19 +193,41 @@ step "snapshot before compression"
 step "compress"
 "${PSQL[@]}" -v run_id="${RUN_ID}" -f "${SQL_DIR}/compress.sql"
 
+# Each pass is its own psql session on purpose: a backend flushes its pending
+# statistics when it exits, so the idx_scan sample taken after a pass already
+# includes that pass's index scans.
+queries_pass() {   # <table> <time column> <q2 bound> <qid suffix> <parallel_off>
+  "${PSQL[@]}" -v run_id="${RUN_ID}" -v variant="${VARIANT}" \
+    -v tbl="$1" -v col="$2" -v q2bound="$3" \
+    -v qid_suffix="$4" -v parallel_off="$5" \
+    -v d1="${D1}" -v d2="${D2}" -v dpoint="${DPOINT}" \
+    -f "${SQL_DIR}/queries.sql"
+}
+Q2BOUND_DATE="current_date - 30"
+Q2BOUND_TSTZ="date_trunc('day', now()) - interval '30 days'"
+
+step "index usage before the query set"
+"${PSQL[@]}" -v run_id="${RUN_ID}" -v phase=before_queries -f "${SQL_DIR}/idxstat.sql"
+
 step "queries on metrics_date"
-"${PSQL[@]}" -v run_id="${RUN_ID}" -v variant="${VARIANT}" \
-  -v tbl=metrics_date -v col=day \
-  -v q2bound="current_date - 30" \
-  -v d1="${D1}" -v d2="${D2}" -v dpoint="${DPOINT}" \
-  -f "${SQL_DIR}/queries.sql"
+queries_pass metrics_date day "${Q2BOUND_DATE}" '' false
 
 step "queries on metrics_tstz"
-"${PSQL[@]}" -v run_id="${RUN_ID}" -v variant="${VARIANT}" \
-  -v tbl=metrics_tstz -v col=ts \
-  -v q2bound="date_trunc('day', now()) - interval '30 days'" \
-  -v d1="${D1}" -v d2="${D2}" -v dpoint="${DPOINT}" \
-  -f "${SQL_DIR}/queries.sql"
+queries_pass metrics_tstz ts "${Q2BOUND_TSTZ}" '' false
+
+step "index usage after the query set"
+"${PSQL[@]}" -v run_id="${RUN_ID}" -v phase=after_queries -f "${SQL_DIR}/idxstat.sql"
+
+if [ "${PARALLEL_OFF_PASS}" = true ]; then
+  step "queries on metrics_date, max_parallel_workers_per_gather = 0"
+  queries_pass metrics_date day "${Q2BOUND_DATE}" '-np' true
+
+  step "queries on metrics_tstz, max_parallel_workers_per_gather = 0"
+  queries_pass metrics_tstz ts "${Q2BOUND_TSTZ}" '-np' true
+
+  step "index usage after the serial query set"
+  "${PSQL[@]}" -v run_id="${RUN_ID}" -v phase=after_queries_np -f "${SQL_DIR}/idxstat.sql"
+fi
 
 step "Q6 continuous aggregate on metrics_date"
 "${PSQL[@]}" -v run_id="${RUN_ID}" -v tbl=metrics_date -v col=day -v cagg=cagg_date \

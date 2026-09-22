@@ -1059,7 +1059,11 @@ select * from date_table where ts <  CURRENT_DATE;
  01-02-2021
  01-01-2021
 
--- A date column vs a timestamptz constant is only vectorized for '>' and '<='.
+-- A date column vs a timestamptz constant is rewritten into a date vs date
+-- comparison against a bound derived from the constant with PostgreSQL's own
+-- cast functions, so all inequality operators are vectorized. '>' and '<='
+-- round the bound down to the date, '>=' and '<' round it up unless it is a
+-- local midnight.
 select * from date_table where ts >  '2021-01-02 12:00:00+00'::timestamptz;
      ts     
 ------------
@@ -1071,11 +1075,6 @@ select * from date_table where ts <= '2021-01-02 12:00:00+00'::timestamptz;
  01-02-2021
  01-01-2021
 
-set timescaledb.debug_require_vector_qual to 'forbid';
-select * from date_table where ts =  '2021-01-02 12:00:00+00'::timestamptz;
- ts 
-----
-
 select * from date_table where ts <  '2021-01-02 12:00:00+00'::timestamptz;
      ts     
 ------------
@@ -1086,6 +1085,75 @@ select * from date_table where ts >= '2021-01-02 12:00:00+00'::timestamptz;
      ts     
 ------------
  01-03-2021
+
+select * from date_table where ts <  '2021-01-02 00:00:00'::timestamptz /* local midnight */;
+     ts     
+------------
+ 01-01-2021
+
+select * from date_table where ts >= '2021-01-02 00:00:00'::timestamptz;
+     ts     
+------------
+ 01-03-2021
+ 01-02-2021
+
+select * from date_table where '2021-01-02 12:00:00+00'::timestamptz <  ts /* mirrored */;
+     ts     
+------------
+ 01-03-2021
+
+select * from date_table where '2021-01-02 12:00:00+00'::timestamptz >= ts;
+     ts     
+------------
+ 01-02-2021
+ 01-01-2021
+
+select * from date_table where '2021-01-02 12:00:00+00'::timestamptz >  ts;
+     ts     
+------------
+ 01-02-2021
+ 01-01-2021
+
+select * from date_table where '2021-01-02 12:00:00+00'::timestamptz <= ts;
+     ts     
+------------
+ 01-03-2021
+
+explain (costs off) select * from date_table where ts >= '2021-01-02 12:00:00+00'::timestamptz;
+--- QUERY PLAN ---
+ Custom Scan (ChunkAppend) on date_table
+   Chunks excluded during startup: 0
+   ->  Custom Scan (ColumnarScan) on _hyper_4_8_chunk
+         Vectorized Filter: (ts >= CASE WHEN (timestamptz(date('Sat Jan 02 04:00:00 2021 PST'::timestamp with time zone)) = 'Sat Jan 02 04:00:00 2021 PST'::timestamp with time zone) THEN date('Sat Jan 02 04:00:00 2021 PST'::timestamp with time zone) ELSE date_pli(date('Sat Jan 02 04:00:00 2021 PST'::timestamp with time zone), 1) END)
+         ->  Index Scan using _hyper_4_8_chunk_compressed__ts_meta_v2_first_ts__ts_meta_v_idx on _hyper_4_8_chunk_compressed
+               Index Cond: (_ts_meta_v2_first_ts >= 'Sat Jan 02 04:00:00 2021 PST'::timestamp with time zone)
+
+-- Equality is rewritten into "ts = T::date AND T::date::timestamptz = T". The
+-- second conjunct has no Var, so the vectorized qual path cannot take it and
+-- the original cross-type comparison is executed instead.
+set timescaledb.debug_require_vector_qual to 'forbid';
+select * from date_table where ts =  '2021-01-02 12:00:00+00'::timestamptz;
+ ts 
+----
+
+select * from date_table where ts =  '2021-01-02 00:00:00'::timestamptz /* local midnight */;
+     ts     
+------------
+ 01-02-2021
+
+select * from date_table where '2021-01-02 00:00:00'::timestamptz = ts;
+     ts     
+------------
+ 01-02-2021
+
+explain (costs off) select * from date_table where ts = '2021-01-02 00:00:00'::timestamptz;
+--- QUERY PLAN ---
+ Custom Scan (ChunkAppend) on date_table
+   Chunks excluded during startup: 0
+   ->  Custom Scan (ColumnarScan) on _hyper_4_8_chunk
+         Filter: (ts = 'Sat Jan 02 00:00:00 2021 PST'::timestamp with time zone)
+         ->  Index Scan using _hyper_4_8_chunk_compressed__ts_meta_v2_first_ts__ts_meta_v_idx on _hyper_4_8_chunk_compressed
+               Index Cond: ((_ts_meta_v2_first_ts >= 'Sat Jan 02 00:00:00 2021 PST'::timestamp with time zone) AND (_ts_meta_v2_last_ts <= 'Sat Jan 02 00:00:00 2021 PST'::timestamp with time zone))
 
 set timescaledb.debug_require_vector_qual to 'require';
 -- Text columns.

@@ -1,0 +1,252 @@
+-- run
+               run_id               |  variant  | git_sha | scale | days | devices | rows_per_device_day | chunk_interval | start_date |  end_date  | extversion |              pg_version               
+------------------------------------+-----------+---------+-------+------+---------+---------------------+----------------+------------+------------+------------+---------------------------------------
+ t3-before-2085ee2-20260922T113337Z | t3-before | 2085ee2 | small |  400 |     200 |                  24 | 7 days         | 2025-08-19 | 2026-09-22 | 2.31.0-dev | 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+
+-- median of three runs
+ query_id |     tbl      | exec_ms | plan_ms | chunks_in_plan | chunks_excluded_startup | vectorized_filter | rows | scan_rows | workers_launched | shared_hit | shared_read 
+----------+--------------+---------+---------+----------------+-------------------------+-------------------+------+-----------+------------------+------------+-------------
+ Q1       | metrics_date |   19.81 |    4.98 |              5 |                      53 | t                 |    1 |    144000 |                2 |       6025 |           0
+ Q1       | metrics_tstz |    5.89 |    0.50 |              5 |                       0 | t                 |    1 |    144000 |                0 |       6025 |           0
+ Q2       | metrics_date |   16.29 |    3.71 |              5 |                      53 | t                 |    1 |    148800 |                2 |       6085 |           0
+ Q2       | metrics_tstz |   15.01 |    4.31 |              5 |                      53 | t                 |    1 |    148800 |                2 |       6025 |           0
+ Q3       | metrics_date |    4.73 |    0.53 |              5 |                       0 | t                 |    1 |    148800 |                0 |       4225 |           0
+ Q3       | metrics_tstz |    4.84 |    0.44 |              5 |                       0 | t                 |    1 |    148800 |                0 |       4225 |           0
+ Q4       | metrics_date |   21.54 |    0.64 |              5 |                       0 | t                 | 1000 |    148800 |                0 |       9025 |           0
+ Q4       | metrics_tstz |   16.33 |    0.53 |              5 |                       0 | t                 | 1000 |    148800 |                0 |       9025 |           0
+ Q5       | metrics_date |    0.04 |    0.19 |              1 |                       0 | t                 |   24 |        24 |                0 |         23 |           0
+ Q5       | metrics_tstz |    0.04 |    0.20 |              1 |                       0 | t                 |   24 |        24 |                0 |         23 |           0
+
+-- all runs, Q1 and Q2
+     tbl      | query_id | run | planning_ms | exec_ms | shared_hit | chunks_in_plan | chunk_scan_nodes | chunks_excluded_startup | vectorized_filter | scan_rows | workers_launched 
+--------------+----------+-----+-------------+---------+------------+----------------+------------------+-------------------------+-------------------+-----------+------------------
+ metrics_date | Q1       |   1 |      23.529 |  20.684 |       6151 |              5 |               10 |                      53 | t                 |    144000 |                2
+ metrics_date | Q1       |   2 |       4.979 |  19.635 |       6025 |              5 |               10 |                      53 | t                 |    144000 |                2
+ metrics_date | Q1       |   3 |        4.21 |  19.808 |       6025 |              5 |               10 |                      53 | t                 |    144000 |                2
+ metrics_date | Q2       |   1 |       3.678 |  16.374 |       6085 |              5 |               10 |                      53 | t                 |    148800 |                2
+ metrics_date | Q2       |   2 |       3.833 |  16.285 |       6025 |              5 |               10 |                      53 | t                 |    148800 |                2
+ metrics_date | Q2       |   3 |       3.714 |  15.974 |       6085 |              5 |               10 |                      53 | t                 |    148800 |                2
+ metrics_tstz | Q1       |   1 |        3.06 |   6.492 |       6150 |              5 |               10 |                       0 | t                 |    144000 |                0
+ metrics_tstz | Q1       |   2 |       0.495 |    5.89 |       6025 |              5 |               10 |                       0 | t                 |    144000 |                0
+ metrics_tstz | Q1       |   3 |       0.421 |   5.739 |       6025 |              5 |               10 |                       0 | t                 |    144000 |                0
+ metrics_tstz | Q2       |   1 |      16.328 |  17.577 |       6025 |              5 |               10 |                      53 | t                 |    148800 |                2
+ metrics_tstz | Q2       |   2 |       4.309 |  14.957 |       6025 |              5 |               10 |                      53 | t                 |    148800 |                2
+ metrics_tstz | Q2       |   3 |       3.955 |  15.011 |       6025 |              5 |               10 |                      53 | t                 |    148800 |                2
+
+-- planning buffers, Q1 and Q2 (from the stored plans)
+     tbl      | query_id | run | planning_shared_hit | planning_shared_read | top_node  | second_node | workers_planned 
+--------------+----------+-----+---------------------+----------------------+-----------+-------------+-----------------
+ metrics_date | Q1       |   1 |               13615 |                    0 | Aggregate | Gather      | 2
+ metrics_date | Q1       |   2 |                 526 |                    0 | Aggregate | Gather      | 2
+ metrics_date | Q1       |   3 |                 526 |                    0 | Aggregate | Gather      | 2
+ metrics_date | Q2       |   1 |                 531 |                    0 | Aggregate | Gather      | 2
+ metrics_date | Q2       |   2 |                 526 |                    0 | Aggregate | Gather      | 2
+ metrics_date | Q2       |   3 |                 526 |                    0 | Aggregate | Gather      | 2
+ metrics_tstz | Q1       |   1 |                1966 |                    0 | Aggregate | Custom Scan | 
+ metrics_tstz | Q1       |   2 |                  49 |                    0 | Aggregate | Custom Scan | 
+ metrics_tstz | Q1       |   3 |                  49 |                    0 | Aggregate | Custom Scan | 
+ metrics_tstz | Q2       |   1 |               12052 |                    0 | Aggregate | Gather      | 2
+ metrics_tstz | Q2       |   2 |                 526 |                    0 | Aggregate | Gather      | 2
+ metrics_tstz | Q2       |   3 |                 526 |                    0 | Aggregate | Gather      | 2
+
+-- results with the GUC on and off (metrics_date Q1 and Q2)
+SET
+ guc | q  |   n    |       avg_v1       
+-----+----+--------+--------------------
+ on  | Q1 | 144000 | 124.78060017361112
+
+ guc | q  |   n    |       avg_v1       
+-----+----+--------+--------------------
+ on  | Q2 | 148800 | 123.16742815860216
+
+SET
+ guc | q  |   n    |       avg_v1       
+-----+----+--------+--------------------
+ off | Q1 | 144000 | 124.78060017361112
+
+ guc | q  |   n    |       avg_v1       
+-----+----+--------+--------------------
+ off | Q2 | 148800 | 123.16742815860216
+
+SET
+ guc  | q  |   n    |       avg_v1       
+------+----+--------+--------------------
+ tstz | Q1 | 144000 | 124.78060017361112
+
+-- exact versus conservative bound, chunks of metrics_date that each keeps
+          clock          |  q1_exact  | q1_conservative | q1_chunks_exact | q1_chunks_conservative |  q2_exact  | q2_conservative | q2_chunks_exact | q2_chunks_conservative | chunks_total 
+-------------------------+------------+-----------------+-----------------+------------------------+------------+-----------------+-----------------+------------------------+--------------
+ 2026-09-22 11:34:14 UTC | 2026-08-24 | 2026-08-23      |               5 |                      5 | 2026-08-23 | 2026-08-22      |               5 |                      5 |           58
+
+-- chunk boundaries around the bound
+     s      |     e      
+------------+------------
+ 2026-08-13 | 2026-08-20
+ 2026-08-20 | 2026-08-27
+ 2026-08-27 | 2026-09-03
+
+-- over a whole cycle of chunk boundaries: extra chunks the conservative bound keeps, per clock day
+ clock_day  | q1_exact | q1_conservative_midday | q1_conservative_before_04utc | q2_exact | q2_conservative 
+------------+----------+------------------------+------------------------------+----------+-----------------
+ 2026-09-16 |        6 |                      6 |                            6 |        6 |               6
+ 2026-09-17 |        6 |                      6 |                            6 |        6 |               6
+ 2026-09-18 |        5 |                      6 |                            6 |        6 |               6
+ 2026-09-19 |        5 |                      5 |                            6 |        5 |               6
+ 2026-09-20 |        5 |                      5 |                            5 |        5 |               5
+ 2026-09-21 |        5 |                      5 |                            5 |        5 |               5
+ 2026-09-22 |        5 |                      5 |                            5 |        5 |               5
+
+-- Q1 and Q2 plans on metrics_date
+                                                                                                                      QUERY PLAN                                                                                                                       
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Finalize Aggregate (actual rows=1 loops=1)
+   Buffers: shared hit=6025
+   ->  Gather (actual rows=5 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=6025
+         ->  Parallel Custom Scan (ChunkAppend) on metrics_date (actual rows=2 loops=3)
+               Chunks excluded during startup: 53
+               Buffers: shared hit=6025
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+                     Buffers: shared hit=1205
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_107_chunk (actual rows=14400 loops=1)
+                           Vectorized Filter: (day >= CASE WHEN (timestamptz(date((now() - '30 days'::interval))) = (now() - '30 days'::interval)) THEN date((now() - '30 days'::interval)) ELSE date_pli(date((now() - '30 days'::interval)), 1) END)
+                           Rows Removed by Filter: 19200
+                           ->  Parallel Seq Scan on _hyper_1_107_chunk_compressed (actual rows=200 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+                     Buffers: shared hit=1205
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_109_chunk (actual rows=33600 loops=1)
+                           Vectorized Filter: (day >= CASE WHEN (timestamptz(date((now() - '30 days'::interval))) = (now() - '30 days'::interval)) THEN date((now() - '30 days'::interval)) ELSE date_pli(date((now() - '30 days'::interval)), 1) END)
+                           ->  Parallel Seq Scan on _hyper_1_109_chunk_compressed (actual rows=200 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+                     Buffers: shared hit=1205
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_111_chunk (actual rows=33600 loops=1)
+                           Vectorized Filter: (day >= CASE WHEN (timestamptz(date((now() - '30 days'::interval))) = (now() - '30 days'::interval)) THEN date((now() - '30 days'::interval)) ELSE date_pli(date((now() - '30 days'::interval)), 1) END)
+                           ->  Parallel Seq Scan on _hyper_1_111_chunk_compressed (actual rows=200 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+                     Buffers: shared hit=1205
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_113_chunk (actual rows=33600 loops=1)
+                           Vectorized Filter: (day >= CASE WHEN (timestamptz(date((now() - '30 days'::interval))) = (now() - '30 days'::interval)) THEN date((now() - '30 days'::interval)) ELSE date_pli(date((now() - '30 days'::interval)), 1) END)
+                           ->  Parallel Seq Scan on _hyper_1_113_chunk_compressed (actual rows=200 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+                     Buffers: shared hit=1205
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_115_chunk (actual rows=28800 loops=1)
+                           Vectorized Filter: (day >= CASE WHEN (timestamptz(date((now() - '30 days'::interval))) = (now() - '30 days'::interval)) THEN date((now() - '30 days'::interval)) ELSE date_pli(date((now() - '30 days'::interval)), 1) END)
+                           ->  Parallel Seq Scan on _hyper_1_115_chunk_compressed (actual rows=200 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Buffers: shared hit=5
+ Planning:
+   Buffers: shared hit=526
+ Planning Time: 3.941 ms
+ Execution Time: 31.082 ms
+
+                                                 QUERY PLAN                                                 
+------------------------------------------------------------------------------------------------------------
+ Finalize Aggregate (actual rows=1 loops=1)
+   Buffers: shared hit=6025
+   ->  Gather (actual rows=5 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=6025
+         ->  Parallel Custom Scan (ChunkAppend) on metrics_date (actual rows=2 loops=3)
+               Chunks excluded during startup: 53
+               Buffers: shared hit=6025
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+                     Buffers: shared hit=1205
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_107_chunk (actual rows=19200 loops=1)
+                           Vectorized Filter: (day >= (CURRENT_DATE - 30))
+                           Rows Removed by Filter: 14400
+                           ->  Parallel Seq Scan on _hyper_1_107_chunk_compressed (actual rows=200 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (CURRENT_DATE - 30))
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+                     Buffers: shared hit=1205
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_109_chunk (actual rows=33600 loops=1)
+                           Vectorized Filter: (day >= (CURRENT_DATE - 30))
+                           ->  Parallel Seq Scan on _hyper_1_109_chunk_compressed (actual rows=200 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (CURRENT_DATE - 30))
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+                     Buffers: shared hit=1205
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_111_chunk (actual rows=33600 loops=1)
+                           Vectorized Filter: (day >= (CURRENT_DATE - 30))
+                           ->  Parallel Seq Scan on _hyper_1_111_chunk_compressed (actual rows=200 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (CURRENT_DATE - 30))
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+                     Buffers: shared hit=1205
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_113_chunk (actual rows=33600 loops=1)
+                           Vectorized Filter: (day >= (CURRENT_DATE - 30))
+                           ->  Parallel Seq Scan on _hyper_1_113_chunk_compressed (actual rows=200 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (CURRENT_DATE - 30))
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+                     Buffers: shared hit=1205
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_115_chunk (actual rows=28800 loops=1)
+                           Vectorized Filter: (day >= (CURRENT_DATE - 30))
+                           ->  Parallel Seq Scan on _hyper_1_115_chunk_compressed (actual rows=200 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (CURRENT_DATE - 30))
+                                 Buffers: shared hit=5
+ Planning:
+   Buffers: shared hit=526
+ Planning Time: 3.678 ms
+ Execution Time: 27.618 ms
+
+-- Q1 plan on metrics_tstz
+                                           QUERY PLAN                                           
+------------------------------------------------------------------------------------------------
+ Finalize Aggregate (actual rows=1 loops=1)
+   Buffers: shared hit=6025
+   ->  Custom Scan (ChunkAppend) on metrics_tstz (actual rows=5 loops=1)
+         Chunks excluded during startup: 0
+         Buffers: shared hit=6025
+         ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+               Buffers: shared hit=1205
+               ->  Custom Scan (ColumnarScan) on _hyper_2_108_chunk (actual rows=14400 loops=1)
+                     Vectorized Filter: (ts >= (now() - '30 days'::interval))
+                     Rows Removed by Filter: 19200
+                     ->  Seq Scan on _hyper_2_108_chunk_compressed (actual rows=200 loops=1)
+                           Filter: (_ts_meta_v2_first_ts >= (now() - '30 days'::interval))
+                           Buffers: shared hit=5
+         ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+               Buffers: shared hit=1205
+               ->  Custom Scan (ColumnarScan) on _hyper_2_110_chunk (actual rows=33600 loops=1)
+                     Vectorized Filter: (ts >= (now() - '30 days'::interval))
+                     ->  Seq Scan on _hyper_2_110_chunk_compressed (actual rows=200 loops=1)
+                           Filter: (_ts_meta_v2_first_ts >= (now() - '30 days'::interval))
+                           Buffers: shared hit=5
+         ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+               Buffers: shared hit=1205
+               ->  Custom Scan (ColumnarScan) on _hyper_2_112_chunk (actual rows=33600 loops=1)
+                     Vectorized Filter: (ts >= (now() - '30 days'::interval))
+                     ->  Seq Scan on _hyper_2_112_chunk_compressed (actual rows=200 loops=1)
+                           Filter: (_ts_meta_v2_first_ts >= (now() - '30 days'::interval))
+                           Buffers: shared hit=5
+         ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+               Buffers: shared hit=1205
+               ->  Custom Scan (ColumnarScan) on _hyper_2_114_chunk (actual rows=33600 loops=1)
+                     Vectorized Filter: (ts >= (now() - '30 days'::interval))
+                     ->  Seq Scan on _hyper_2_114_chunk_compressed (actual rows=200 loops=1)
+                           Filter: (_ts_meta_v2_first_ts >= (now() - '30 days'::interval))
+                           Buffers: shared hit=5
+         ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+               Buffers: shared hit=1205
+               ->  Custom Scan (ColumnarScan) on _hyper_2_116_chunk (actual rows=28800 loops=1)
+                     Vectorized Filter: (ts >= (now() - '30 days'::interval))
+                     ->  Seq Scan on _hyper_2_116_chunk_compressed (actual rows=200 loops=1)
+                           Filter: (_ts_meta_v2_first_ts >= (now() - '30 days'::interval))
+                           Buffers: shared hit=5
+ Planning:
+   Buffers: shared hit=49
+ Planning Time: 0.597 ms
+ Execution Time: 5.791 ms
+

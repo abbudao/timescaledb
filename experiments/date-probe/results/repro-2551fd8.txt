@@ -1,0 +1,611 @@
+DATE vs TIMESTAMPTZ chunk exclusion for 'time >= now() - interval 30 days'
+==========================================================================
+
+commit:    2551fd8
+extension: 2.31.0-dev
+postgres:  16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+generated: 2026-09-22T00:51:54Z
+
+Both hypertables hold the same rows and the same number of chunks; they
+differ only in the type of the time column.
+
+ hypertable_name | column_name |       column_type        | time_interval | chunks | compressed_chunks 
+-----------------+-------------+--------------------------+---------------+--------+-------------------
+ metrics_date    | day         | date                     | 7 days        |     58 |                58
+ metrics_tstz    | ts          | timestamp with time zone | 7 days        |     58 |                58
+(2 rows)
+
+
+In one table: what each predicate costs in chunks. Measured by running
+the same three queries under EXPLAIN (ANALYZE, FORMAT JSON) and reading
+the plan tree; the plans themselves follow.
+
+     tbl      |          predicate           | chunks_in_plan | excluded_at_startup | vectorized_filter | rows_scanned | exec_ms 
+--------------+------------------------------+----------------+---------------------+-------------------+--------------+---------
+ metrics_date | Q1 date >= current_date - 30 |              5 |                  53 | t                 |       148800 |   18.17
+ metrics_date | Q1 date >= now() - 30 days   |             58 |                   0 | f                 |       144000 |   30.82
+ metrics_tstz | Q1 ts >= now() - 30 days     |              5 |                   0 | t                 |       144000 |    9.49
+(3 rows)
+
+
+--- Q1 on metrics_date (DATE dimension) ---------------------------------
+
+                                                 QUERY PLAN                                                 
+------------------------------------------------------------------------------------------------------------
+ Finalize Aggregate (actual rows=1 loops=1)
+   Buffers: shared hit=6486
+   ->  Gather (actual rows=6 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=6486
+         ->  Parallel Custom Scan (ChunkAppend) on metrics_date (actual rows=2 loops=3)
+               Chunks excluded during startup: 0
+               Buffers: shared hit=6486
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_3_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_3_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_5_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_5_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_7_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_7_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_9_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_9_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_11_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_11_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_13_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_13_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_15_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_15_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_17_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_17_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_19_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_19_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_21_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_21_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_23_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_23_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_25_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_25_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_27_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_27_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_29_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_29_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_31_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_31_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_33_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_33_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_35_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_35_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_37_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_37_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_39_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_39_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_41_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_41_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_43_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_43_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_45_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_45_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_47_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_47_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_49_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_49_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_51_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_51_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_53_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_53_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_55_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_55_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_57_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_57_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_59_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_59_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_61_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_61_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_63_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_63_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_65_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_65_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_67_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_67_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_69_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_69_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_71_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_71_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_73_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_73_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_75_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_75_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_77_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_77_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_79_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_79_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_81_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_81_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_83_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_83_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_85_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_85_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_87_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_87_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_89_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_89_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_91_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_91_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_93_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_93_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_95_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_95_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_97_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_97_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_99_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_99_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_101_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_101_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_103_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_103_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=5
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_105_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_105_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+                     Buffers: shared hit=1231
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_107_chunk (actual rows=14400 loops=1)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           Rows Removed by Filter: 19200
+                           ->  Parallel Seq Scan on _hyper_1_107_chunk_compressed (actual rows=200 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+                     Buffers: shared hit=1230
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_109_chunk (actual rows=33600 loops=1)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_109_chunk_compressed (actual rows=200 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+                     Buffers: shared hit=1230
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_111_chunk (actual rows=33600 loops=1)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_111_chunk_compressed (actual rows=200 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+                     Buffers: shared hit=1230
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_113_chunk (actual rows=33600 loops=1)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_113_chunk_compressed (actual rows=200 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=3)
+                     Buffers: shared hit=1271
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_115_chunk (actual rows=14400 loops=2)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_115_chunk_compressed (actual rows=67 loops=3)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=0 loops=1)
+                     Buffers: shared hit=34
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_1_chunk (never executed)
+                           Filter: (day >= (now() - '30 days'::interval))
+                           ->  Parallel Seq Scan on _hyper_1_1_chunk_compressed (actual rows=0 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 200
+                                 Buffers: shared hit=34
+ Planning:
+   Buffers: shared hit=13561
+(471 rows)
+
+
+--- Q1 on metrics_tstz (TIMESTAMPTZ dimension) --------------------------
+
+                                           QUERY PLAN                                           
+------------------------------------------------------------------------------------------------
+ Finalize Aggregate (actual rows=1 loops=1)
+   Buffers: shared hit=6150
+   ->  Custom Scan (ChunkAppend) on metrics_tstz (actual rows=5 loops=1)
+         Chunks excluded during startup: 0
+         Buffers: shared hit=6150
+         ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+               Buffers: shared hit=1230
+               ->  Custom Scan (ColumnarScan) on _hyper_2_108_chunk (actual rows=14400 loops=1)
+                     Vectorized Filter: (ts >= (now() - '30 days'::interval))
+                     Rows Removed by Filter: 19200
+                     ->  Seq Scan on _hyper_2_108_chunk_compressed (actual rows=200 loops=1)
+                           Filter: (_ts_meta_v2_first_ts >= (now() - '30 days'::interval))
+                           Buffers: shared hit=5
+         ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+               Buffers: shared hit=1230
+               ->  Custom Scan (ColumnarScan) on _hyper_2_110_chunk (actual rows=33600 loops=1)
+                     Vectorized Filter: (ts >= (now() - '30 days'::interval))
+                     ->  Seq Scan on _hyper_2_110_chunk_compressed (actual rows=200 loops=1)
+                           Filter: (_ts_meta_v2_first_ts >= (now() - '30 days'::interval))
+                           Buffers: shared hit=5
+         ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+               Buffers: shared hit=1230
+               ->  Custom Scan (ColumnarScan) on _hyper_2_112_chunk (actual rows=33600 loops=1)
+                     Vectorized Filter: (ts >= (now() - '30 days'::interval))
+                     ->  Seq Scan on _hyper_2_112_chunk_compressed (actual rows=200 loops=1)
+                           Filter: (_ts_meta_v2_first_ts >= (now() - '30 days'::interval))
+                           Buffers: shared hit=5
+         ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+               Buffers: shared hit=1230
+               ->  Custom Scan (ColumnarScan) on _hyper_2_114_chunk (actual rows=33600 loops=1)
+                     Vectorized Filter: (ts >= (now() - '30 days'::interval))
+                     ->  Seq Scan on _hyper_2_114_chunk_compressed (actual rows=200 loops=1)
+                           Filter: (_ts_meta_v2_first_ts >= (now() - '30 days'::interval))
+                           Buffers: shared hit=5
+         ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+               Buffers: shared hit=1230
+               ->  Custom Scan (ColumnarScan) on _hyper_2_116_chunk (actual rows=28800 loops=1)
+                     Vectorized Filter: (ts >= (now() - '30 days'::interval))
+                     ->  Seq Scan on _hyper_2_116_chunk_compressed (actual rows=200 loops=1)
+                           Filter: (_ts_meta_v2_first_ts >= (now() - '30 days'::interval))
+                           Buffers: shared hit=5
+ Planning:
+   Buffers: shared hit=1994
+(43 rows)
+
+
+--- same predicate written with the column's own type -------------------
+
+                                                 QUERY PLAN                                                 
+------------------------------------------------------------------------------------------------------------
+ Finalize Aggregate (actual rows=1 loops=1)
+   Buffers: shared hit=6211
+   ->  Gather (actual rows=6 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=6211
+         ->  Parallel Custom Scan (ChunkAppend) on metrics_date (actual rows=2 loops=3)
+               Chunks excluded during startup: 53
+               Buffers: shared hit=6211
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+                     Buffers: shared hit=1231
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_107_chunk (actual rows=19200 loops=1)
+                           Vectorized Filter: (day >= (CURRENT_DATE - 30))
+                           Rows Removed by Filter: 14400
+                           ->  Parallel Seq Scan on _hyper_1_107_chunk_compressed (actual rows=200 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (CURRENT_DATE - 30))
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+                     Buffers: shared hit=1230
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_109_chunk (actual rows=33600 loops=1)
+                           Vectorized Filter: (day >= (CURRENT_DATE - 30))
+                           ->  Parallel Seq Scan on _hyper_1_109_chunk_compressed (actual rows=200 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (CURRENT_DATE - 30))
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+                     Buffers: shared hit=1230
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_111_chunk (actual rows=33600 loops=1)
+                           Vectorized Filter: (day >= (CURRENT_DATE - 30))
+                           ->  Parallel Seq Scan on _hyper_1_111_chunk_compressed (actual rows=200 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (CURRENT_DATE - 30))
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=1)
+                     Buffers: shared hit=1230
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_113_chunk (actual rows=33600 loops=1)
+                           Vectorized Filter: (day >= (CURRENT_DATE - 30))
+                           ->  Parallel Seq Scan on _hyper_1_113_chunk_compressed (actual rows=200 loops=1)
+                                 Filter: (_ts_meta_v2_first_day >= (CURRENT_DATE - 30))
+                                 Buffers: shared hit=5
+               ->  Custom Scan (VectorAgg) (actual rows=1 loops=2)
+                     Buffers: shared hit=1290
+                     ->  Custom Scan (ColumnarScan) on _hyper_1_115_chunk (actual rows=14400 loops=2)
+                           Vectorized Filter: (day >= (CURRENT_DATE - 30))
+                           ->  Parallel Seq Scan on _hyper_1_115_chunk_compressed (actual rows=100 loops=2)
+                                 Filter: (_ts_meta_v2_first_day >= (CURRENT_DATE - 30))
+                                 Buffers: shared hit=5
+ Planning:
+   Buffers: shared hit=13507
+(47 rows)
+

@@ -152,12 +152,22 @@ Open questions for the orchestrator:
 
 ## Scorecard
 
-Filled by T6 from measured numbers. Until then the ranking is the prior from
-the probe plan: T2+T3 first, T4 second, T5 as a decision input.
+Filled by T6 from measured numbers; the full version, with the rule applied
+design by design and every run behind it, is
+`results/T6-scorecard.md`. The prior held: T2+T3 first, T4 second, T5 as a
+decision input.
+
+"Gain on customer queries" is Q1 (`day >= now() - interval '30 days'`) and Q2
+(`day >= current_date - 30`) on `metrics_date`, **serial**
+(`max_parallel_workers_per_gather = 0`), run `int-after` against the control
+run `int-baseline` on the same machine on the same day, `--scale small`,
+7-day chunks. Serial, because at 400 chunks the parallel plan is slower than
+the serial one and parallel numbers disagree by up to 2.6x between cells that
+should be identical.
 
 | Design | Gain on customer queries | Bytes per row | Effort | Go / no-go |
 |---|---|---|---|---|
-| runtime transform, all operators | | | | |
-| constify DATE bounds | | | | |
-| orderby tiebreaker | | | | |
-| chunking and index defaults | | | | |
+| runtime transform, all operators | Q1 +2.7%, Q2 -11.9% (T2's own run; the harness has no cross-type `<`, `>`, `<=`, `=` for it to accelerate). Measured on Q1: chunks reaching the executor 58 → 5, vectorized filter no → yes, buffers 6401 → 6025 | no effect (28.66 → 28.73 B/row, 0.27% run-to-run) | engine 4 files, +389 / -19; with tests 10 files, +1263 / -33 | **go**, as PR 1 of Track A; alone it misses the fifth with +2.7% on Q1 |
+| constify DATE bounds | **Q1 14.84 → 6.33 ms, +57.3%**; Q2 6.18 → 5.72 ms, +7.4% (parallel +59.6%). Planning Q1 3.69 → 0.63 ms, planning buffers 526 → 49, chunks planned 58 → 5 | no effect | engine 1 file, +462 / -95; with tests 6 files, +1956 / -95 | **go** |
+| orderby tiebreaker | none: changes no plan, 0% on Q1 and Q2 | **worse**: value columns -0.53%, four new metadata columns +371 200 B, all compressed columns **+0.50%**; physical total -1.67% against a 0.24% noise floor | engine 1 file, +124 / -1; with tests 3 files, +402 / -1 | **no-go** as a default; keep as an opt-in, re-measure where batches are wide |
+| chunking and index defaults | n/a, a measurement task: the intervals are user choices, not an engine change | 1 day 66.56, 7 days 28.71, 30 days 19.79 B/row; the default time index costs 6.9-10.2 B/row before compression and 45-50% of insert throughput, and is never scanned | 0 files under `src/`, `tsl/`, `sql/`, `test/` | **no-go** as an engine default change (7 → 30 days is 1.45x with a +33% Q3 regression); **go** for a create-time `NOTICE` at `DATE` + interval <= 1 day, plus documentation |

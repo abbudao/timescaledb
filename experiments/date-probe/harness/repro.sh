@@ -87,6 +87,31 @@ EXPLAIN_OPTS='EXPLAIN (ANALYZE, BUFFERS, COSTS OFF, TIMING OFF, SUMMARY OFF)'
     ORDER BY h.hypertable_name"
 
   echo
+  echo "In one table: what each predicate costs in chunks. Measured by running"
+  echo "the same three queries under EXPLAIN (ANALYZE, FORMAT JSON) and reading"
+  echo "the plan tree; the plans themselves follow."
+  echo
+  "${PSQL[@]}" -c "
+    DO \$do\$
+    BEGIN
+        DELETE FROM probe_plans WHERE run_id = 'repro';
+        PERFORM probe_explain('repro', 'repro', 'metrics_date', 'Q1 date >= now() - 30 days', 1,
+                  \$\$SELECT count(*) AS n, avg(v1) AS avg_v1 FROM metrics_date
+                     WHERE day >= now() - interval '30 days'\$\$);
+        PERFORM probe_explain('repro', 'repro', 'metrics_tstz', 'Q1 ts >= now() - 30 days', 1,
+                  \$\$SELECT count(*) AS n, avg(v1) AS avg_v1 FROM metrics_tstz
+                     WHERE ts >= now() - interval '30 days'\$\$);
+        PERFORM probe_explain('repro', 'repro', 'metrics_date', 'Q1 date >= current_date - 30', 1,
+                  \$\$SELECT count(*) AS n, avg(v1) AS avg_v1 FROM metrics_date
+                     WHERE day >= current_date - 30\$\$);
+    END
+    \$do\$;
+    SELECT tbl, query_id AS predicate, chunks_in_plan, chunks_excluded_startup AS excluded_at_startup,
+           vectorized_filter, round(scan_rows::numeric, 0) AS rows_scanned,
+           round(exec_ms::numeric, 2) AS exec_ms
+    FROM probe_query_metrics WHERE run_id = 'repro' ORDER BY query_id;"
+
+  echo
   echo "--- Q1 on metrics_date (DATE dimension) ---------------------------------"
   echo
   "${PSQL[@]}" -c "${EXPLAIN_OPTS}

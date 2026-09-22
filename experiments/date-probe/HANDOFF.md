@@ -24,11 +24,11 @@ or the fork):
 ```bash
 git checkout -b claude/hypertable-date-time-dimension-ms75bt origin/main
 git am base/*.patch
-for d in probe-*/; do
-  br="${d%/}"; br="${br/probe-/probe/}"
-  git checkout -b "${br}" claude/hypertable-date-time-dimension-ms75bt
-  git am "${d}"*.patch
-done
+# Then, in the manifest's order, each series on top of its parent branch:
+#   git checkout -b probe/<name> <parent branch from the manifest>
+#   git am probe-<name>/*.patch
+# Series cut from the base list the base branch as parent; T3 lists
+# probe/a1-runtime-transform and T5 lists probe/harness.
 git checkout claude/hypertable-date-time-dimension-ms75bt
 ```
 

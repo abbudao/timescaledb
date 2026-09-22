@@ -22,27 +22,46 @@ OUT="${1:-${REPO}/probe-patches-$(date -u +%Y%m%dT%H%M%SZ)}"
 mkdir -p "${OUT}/base"
 cd "${REPO}"
 
+# Branches that were cut from another probe branch rather than from the base.
+# Their series are exported relative to that parent so the parent's commits
+# are not duplicated under new hashes when the hand-off is applied.
+parent_of() {
+  case "$1" in
+    probe/a2-constify-date)          echo "probe/a1-runtime-transform" ;;
+    probe/c1-defaults-measurement)   echo "probe/harness" ;;
+    *)                               echo "${BASE_BRANCH}" ;;
+  esac
+}
+
 {
   echo "# Probe patch manifest"
   echo
   echo "Exported $(date -u +%FT%TZ) from $(hostname)."
   echo
-  echo "Apply order: base first, then any branch, each on top of the base branch."
+  echo "Apply order: top to bottom. Each series applies on top of the branch in"
+  echo "its parent column, which must have been applied first."
   echo
-  echo "| series | branch | head | patches |"
-  echo "|---|---|---|---|"
+  echo "| series | branch | parent | head | patches |"
+  echo "|---|---|---|---|---|"
 } > "${OUT}/MANIFEST.md"
 
 count_patches() { find "$1" -maxdepth 1 -name '*.patch' | wc -l; }
 
 git format-patch -q "${UPSTREAM}..${BASE_BRANCH}" -o "${OUT}/base" >/dev/null
-echo "| base | ${BASE_BRANCH} | $(git rev-parse --short "${BASE_BRANCH}") | $(count_patches "${OUT}/base") |" >> "${OUT}/MANIFEST.md"
+echo "| base | ${BASE_BRANCH} | ${UPSTREAM} | $(git rev-parse --short "${BASE_BRANCH}") | $(count_patches "${OUT}/base") |" >> "${OUT}/MANIFEST.md"
 
-for br in $(git for-each-ref --format='%(refname:short)' 'refs/heads/probe/*'); do
+# Parents before children: branches cut from the base first, then the rest.
+branches=$(git for-each-ref --format='%(refname:short)' 'refs/heads/probe/*')
+ordered=""
+for br in ${branches}; do [ "$(parent_of "${br}")" = "${BASE_BRANCH}" ] && ordered="${ordered} ${br}"; done
+for br in ${branches}; do [ "$(parent_of "${br}")" = "${BASE_BRANCH}" ] || ordered="${ordered} ${br}"; done
+
+for br in ${ordered}; do
+  parent="$(parent_of "${br}")"
   dir="${OUT}/${br//\//-}"
   mkdir -p "${dir}"
-  git format-patch -q "${BASE_BRANCH}..${br}" -o "${dir}" >/dev/null
-  echo "| ${br//\//-} | ${br} | $(git rev-parse --short "${br}") | $(count_patches "${dir}") |" >> "${OUT}/MANIFEST.md"
+  git format-patch -q "${parent}..${br}" -o "${dir}" >/dev/null
+  echo "| ${br//\//-} | ${br} | ${parent} | $(git rev-parse --short "${br}") | $(count_patches "${dir}") |" >> "${OUT}/MANIFEST.md"
 done
 
 # Uncommitted work in agent worktrees is not exported; list it so nobody

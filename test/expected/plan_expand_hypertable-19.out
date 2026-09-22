@@ -2158,6 +2158,72 @@ time_bucket exclusion with date
          Index Cond: (("time" >= '01-03-2000'::date) AND ("time" <= '01-11-2000'::date))
          Filter: ((time_bucket('@ 1 day'::interval, "time") >= '01-03-2000'::date) AND (time_bucket('@ 1 day'::interval, "time") <= '01-10-2000'::date))
 
+\qecho clock-derived lower bounds on a DATE dimension are constified at plan time
+clock-derived lower bounds on a DATE dimension are constified at plan time
+\qecho the data is from 2000, so every chunk is excluded at plan time and the plan is an empty Result
+the data is from 2000, so every chunk is excluded at plan time and the plan is an empty Result
+:PREFIX SELECT * FROM metrics_date WHERE time >= now() - interval '30 days' ORDER BY time;
+--- QUERY PLAN ---
+ Sort
+   Sort Key: "time"
+   ->  Result
+         One-Time Filter: false
+
+:PREFIX SELECT * FROM metrics_date WHERE time >= current_date - 30 ORDER BY time;
+--- QUERY PLAN ---
+ Sort
+   Sort Key: "time"
+   ->  Result
+         One-Time Filter: false
+
+:PREFIX SELECT * FROM metrics_date WHERE time > (now() - interval '30 days')::date ORDER BY time;
+--- QUERY PLAN ---
+ Sort
+   Sort Key: "time"
+   ->  Result
+         One-Time Filter: false
+
+:PREFIX SELECT * FROM metrics_date WHERE time > CURRENT_TIMESTAMP ORDER BY time;
+--- QUERY PLAN ---
+ Sort
+   Sort Key: "time"
+   ->  Result
+         One-Time Filter: false
+
+\qecho upper bounds are not constified
+upper bounds are not constified
+:PREFIX SELECT * FROM metrics_date WHERE time <= now() ORDER BY time;
+--- QUERY PLAN ---
+ Custom Scan (ChunkAppend) on metrics_date
+   Order: metrics_date."time"
+   Chunks excluded during startup: 0
+   ->  Index Only Scan Backward using _hyper_8_171_chunk_metrics_date_time_idx on _hyper_8_171_chunk
+         Index Cond: ("time" <= now())
+   ->  Index Only Scan Backward using _hyper_8_172_chunk_metrics_date_time_idx on _hyper_8_172_chunk
+         Index Cond: ("time" <= now())
+   ->  Index Only Scan Backward using _hyper_8_173_chunk_metrics_date_time_idx on _hyper_8_173_chunk
+         Index Cond: ("time" <= now())
+   ->  Index Only Scan Backward using _hyper_8_174_chunk_metrics_date_time_idx on _hyper_8_174_chunk
+         Index Cond: ("time" <= now())
+   ->  Index Only Scan Backward using _hyper_8_175_chunk_metrics_date_time_idx on _hyper_8_175_chunk
+         Index Cond: ("time" <= now())
+
+:PREFIX SELECT * FROM metrics_date WHERE time < current_date ORDER BY time;
+--- QUERY PLAN ---
+ Custom Scan (ChunkAppend) on metrics_date
+   Order: metrics_date."time"
+   Chunks excluded during startup: 0
+   ->  Index Only Scan Backward using _hyper_8_171_chunk_metrics_date_time_idx on _hyper_8_171_chunk
+         Index Cond: ("time" < CURRENT_DATE)
+   ->  Index Only Scan Backward using _hyper_8_172_chunk_metrics_date_time_idx on _hyper_8_172_chunk
+         Index Cond: ("time" < CURRENT_DATE)
+   ->  Index Only Scan Backward using _hyper_8_173_chunk_metrics_date_time_idx on _hyper_8_173_chunk
+         Index Cond: ("time" < CURRENT_DATE)
+   ->  Index Only Scan Backward using _hyper_8_174_chunk_metrics_date_time_idx on _hyper_8_174_chunk
+         Index Cond: ("time" < CURRENT_DATE)
+   ->  Index Only Scan Backward using _hyper_8_175_chunk_metrics_date_time_idx on _hyper_8_175_chunk
+         Index Cond: ("time" < CURRENT_DATE)
+
 \qecho time_bucket exclusion with timestamp
 time_bucket exclusion with timestamp
 :PREFIX SELECT * FROM metrics_timestamp WHERE time_bucket('1d',time) < '2000-01-03' ORDER BY time;

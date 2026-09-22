@@ -25,9 +25,14 @@ Established by reading the code on `main` (see the briefs for line references):
   gets no plan-time exclusion, incomplete runtime exclusion, and no
   vectorized filter.
 - Before compression, `DATE` saves bytes only when the next column does not
-  need 8-byte alignment. After compression the time column's width is
-  irrelevant: `deltadelta` widens dates to `int64` and the stream is identical
-  to a `timestamptz` stream with the same delta pattern.
+  need 8-byte alignment; in the harness schema the 4 bytes go to padding
+  ahead of `seq` and the heap rows are byte-identical. After compression the
+  stream format is the same for both types, but the delta magnitudes are
+  not: day-to-day steps are small integers for `DATE` and 86.4 billion
+  microseconds for a midnight `timestamptz`, so the `DATE` column compresses
+  about three times smaller. Measured by T1 at small scale: 0.55 versus 1.55
+  bytes per row for the time column, 28.8 versus 30.4 bytes per row for the
+  whole table. Real, but about five percent, not half.
 - Rows are sorted for compression by segmentby plus orderby with no
   tiebreaker. A `DATE` orderby leaves rows within a day in arbitrary order
   inside each batch of 1000, which hurts every other column's compression.

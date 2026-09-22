@@ -44,7 +44,7 @@ Kept current by the orchestrator at every hand-off.
 | task | branch | state |
 |---|---|---|
 | T0 | base | done |
-| T1 | probe/harness | in progress, agent running |
+| T1 | probe/harness | done at bf46778; baseline: Q1 5.3x slower on DATE (58 chunks planned vs 5, no vectorized filter); harness bugs fixed; report in results/T1-report.md |
 | T2 | probe/a1-runtime-transform | in progress, agent running |
 | T3 | probe/a2-constify-date | not started, waits for T2 |
 | T4 | probe/b1-orderby-tiebreaker | done at a7ee096; tests pass; verdict no-go as default at small scale (value columns -0.53%, metadata +371 KB); re-measure at customer scale in T6; report in results/T4-report.md |

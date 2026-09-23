@@ -55,7 +55,7 @@ is_valid_now_func(Node *node)
 	}
 
 	if (IsA(node, SQLValueFunction) &&
-		castNode(SQLValueFunction, node)->type == SVFOP_CURRENT_TIMESTAMP)
+		castNode(SQLValueFunction, node)->op == SVFOP_CURRENT_TIMESTAMP)
 	{
 		return true;
 	}
